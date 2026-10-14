@@ -1,0 +1,1555 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chronos — build a countdown for anything</title>
+<meta name="description" content="Chronos is a countdown studio. Pick any moment — a launch, an exam, a wedding, a festival — style it, and share it with one link. Counts down or up, any timezone, no sign-up.">
+<meta name="theme-color" content="#0E0F13">
+<meta property="og:title" content="Chronos — build a countdown for anything">
+<meta property="og:description" content="A countdown studio for launches, exams, weddings and festivals. Style it, share a link, no sign-up.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E0F13'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23FF7A45' stroke-width='2.5'/%3E%3Cpath d='M16 10.5V16l4 2.5' fill='none' stroke='%23ECEDF2' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<script>
+(function () {
+  var s = localStorage.getItem('chronos-theme');
+  document.documentElement.dataset.theme = (s === 'light' || s === 'dark') ? s : 'dark';
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Chronos — design tokens
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --bg:         #F5F2EC;
+  --bg-2:       #EFEBE2;
+  --surface:    #FFFFFF;
+  --surface-2:  #ECE7DD;
+  --ink:        #1A1712;
+  --ink-soft:   #5C554A;
+  --line:       #DED7C8;
+  --line-strong:#C9C0AC;
+  --accent:     #CE4A18;
+  --accent-ink: #FFFFFF;
+  --accent-soft:#F8E4D8;
+  --focus:      #CE4A18;
+  --shadow-sm:  0 1px 2px rgba(26,23,18,.06), 0 2px 8px rgba(26,23,18,.05);
+  --shadow-md:  0 10px 30px -12px rgba(26,23,18,.28), 0 2px 8px rgba(26,23,18,.06);
+  --shadow-lg:  0 30px 70px -30px rgba(26,23,18,.45);
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+
+  --text-xs:  clamp(0.75rem, 0.73rem + 0.06vw, 0.82rem);
+  --text-sm:  clamp(0.86rem, 0.84rem + 0.1vw, 0.95rem);
+  --text-base:clamp(1rem, 0.96rem + 0.2vw, 1.14rem);
+  --text-lg:  clamp(1.12rem, 1.06rem + 0.3vw, 1.34rem);
+  --text-xl:  clamp(1.34rem, 1.22rem + 0.6vw, 1.8rem);
+  --text-2xl: clamp(1.7rem, 1.42rem + 1.3vw, 2.7rem);
+  --text-3xl: clamp(2.2rem, 1.6rem + 3vw, 4rem);
+  --text-4xl: clamp(2.7rem, 1.7rem + 5vw, 6rem);
+
+  --s-1: 0.25rem; --s-2: 0.5rem; --s-3: 0.75rem; --s-4: 1rem;
+  --s-5: 1.5rem; --s-6: 2rem; --s-7: 3rem; --s-8: 4rem;
+  --s-9: 6rem; --s-10: 8rem;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 22px;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --page-t-out: 180ms;
+  --page-t-in: 300ms;
+  --container: min(1160px, 92vw);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:         #0E0F13;
+  --bg-2:       #12141A;
+  --surface:    #16181E;
+  --surface-2:  #1E212A;
+  --ink:        #ECEDF2;
+  --ink-soft:   #99A0B0;
+  --line:       #292D38;
+  --line-strong:#3A3F4D;
+  --accent:     #FF7A45;
+  --accent-ink: #1A0D05;
+  --accent-soft:#33211A;
+  --focus:      #FF7A45;
+  --shadow-sm:  0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:  0 14px 34px -16px rgba(0,0,0,.75);
+  --shadow-lg:  0 40px 80px -40px rgba(0,0,0,.9);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+h1 { font-size: var(--text-4xl); }
+h2 { font-size: var(--text-3xl); }
+h3 { font-size: var(--text-xl); letter-spacing: -0.01em; }
+p { margin: 0; text-wrap: pretty; max-width: 66ch; }
+a { color: inherit; text-decoration: none; }
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+
+::selection { background: var(--accent); color: var(--accent-ink); }
+
+.container { width: var(--container); margin-inline: auto; }
+.skip {
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, -140%);
+  background: var(--accent); color: var(--accent-ink); padding: .6rem 1rem;
+  border-radius: 0 0 10px 10px; z-index: 200; transition: transform .2s var(--ease-out-soft);
+}
+.skip:focus { transform: translate(-50%, 0); }
+
+/* ============================================================
+   Header
+   ============================================================ */
+.site-header {
+  position: sticky; top: 0; z-index: 90;
+  backdrop-filter: saturate(150%) blur(14px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s var(--ease-out-soft), background .3s var(--ease-out-soft);
+}
+.site-header.is-condensed { border-bottom-color: var(--line); }
+.hd-inner {
+  display: flex; align-items: center; gap: var(--s-5);
+  height: 70px; transition: height .3s var(--ease-out-soft);
+}
+.site-header.is-condensed .hd-inner { height: 58px; }
+.brand { display: flex; align-items: center; gap: .6rem; font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.02em; }
+.brand svg { width: 26px; height: 26px; }
+.brand .dot { color: var(--accent); }
+
+.nav { display: flex; gap: var(--s-2); margin-left: auto; }
+.nav a {
+  position: relative; padding: .5rem .8rem; border-radius: 8px;
+  font-size: var(--text-sm); color: var(--ink-soft); font-weight: 500;
+  transition: color .25s var(--ease-out-soft);
+}
+.nav a::after {
+  content: ""; position: absolute; left: .8rem; right: .8rem; bottom: .32rem; height: 1.5px;
+  background: var(--accent); transform: scaleX(0); transform-origin: left;
+  transition: transform .3s var(--ease-out-soft);
+}
+.nav a:hover { color: var(--ink); }
+.nav a:hover::after, .nav a[aria-current="page"]::after { transform: scaleX(1); }
+.nav a[aria-current="page"] { color: var(--ink); }
+
+.hd-actions { display: flex; align-items: center; gap: .5rem; }
+.icon-btn {
+  display: grid; place-items: center; width: 42px; height: 42px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); transition: border-color .25s, transform .12s var(--ease-spring), background .25s;
+}
+.icon-btn:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.icon-btn:active { transform: scale(.94); }
+.icon-btn svg { width: 19px; height: 19px; }
+.theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+.menu-btn { display: none; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .72rem 1.15rem; border-radius: 10px; border: 1px solid transparent;
+  font-weight: 500; font-size: var(--text-sm); letter-spacing: .01em;
+  transition: transform .14s var(--ease-spring), background .25s var(--ease-out-soft),
+              border-color .25s, box-shadow .3s, color .25s;
+  white-space: nowrap;
+}
+.btn svg { width: 17px; height: 17px; }
+.btn:active { transform: translateY(1px) scale(.985); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); box-shadow: var(--shadow-md); }
+.btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+.btn-ghost:hover { border-color: var(--line-strong); background: var(--surface); }
+.btn-quiet { background: transparent; color: var(--ink-soft); padding-inline: .7rem; }
+.btn-quiet:hover { color: var(--ink); background: var(--surface-2); }
+.btn-lg { padding: .9rem 1.5rem; font-size: var(--text-base); }
+.btn-block { width: 100%; }
+
+/* ============================================================
+   Views + page transitions
+   ============================================================ */
+.view { display: none; transition: opacity var(--page-t-in) var(--ease-out-soft), transform var(--page-t-in) var(--ease-out-soft); }
+.view.is-active { display: block; }
+.view.is-leaving { display: block; opacity: 0; transform: translateY(-8px); transition-duration: var(--page-t-out); }
+.view.is-active.is-entering { opacity: 0; transform: translateY(14px); transition-duration: 0s; }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: page-out var(--page-t-out) var(--ease-in-out) both; }
+  ::view-transition-new(root) { animation: page-in var(--page-t-in) var(--ease-out-soft) both; }
+}
+@keyframes page-out { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(14px); } }
+
+body.immersive .site-header,
+body.immersive .site-footer { display: none; }
+
+/* ============================================================
+   Section rhythm
+   ============================================================ */
+section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
+.section-head { max-width: 62ch; margin-bottom: var(--s-7); }
+.eyebrow {
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: var(--s-3); display: block;
+}
+.lead { font-size: var(--text-lg); color: var(--ink-soft); margin-top: var(--s-4); }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero { padding-block: clamp(3rem, 7vw, 6rem) clamp(4rem, 9vw, 7rem); }
+.hero-grid { display: grid; grid-template-columns: 1fr; gap: clamp(2.5rem, 6vw, 5rem); align-items: center; }
+@media (min-width: 980px) { .hero-grid { grid-template-columns: 1.02fr .98fr; } }
+.hero h1 { font-size: var(--text-4xl); }
+.hero h1 em { font-style: italic; color: var(--accent); font-weight: 500; }
+.hero .lead { max-width: 46ch; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-6); }
+.hero-note { margin-top: var(--s-5); font-size: var(--text-sm); color: var(--ink-soft); display: flex; align-items: center; gap: .5rem; }
+.hero-note svg { width: 16px; height: 16px; color: var(--accent); }
+
+/* ============================================================
+   Countdown component
+   ============================================================ */
+.cd {
+  --cd-gap: clamp(.4rem, 1.4vw, .9rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.3rem, 3vw, 2.1rem);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+.cd::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 100% 0%, var(--accent-soft), transparent 60%);
+  opacity: .7; pointer-events: none;
+}
+.cd > * { position: relative; }
+.cd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); margin-bottom: var(--s-5); }
+.cd-title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+.cd-sub { font-size: var(--text-sm); color: var(--ink-soft); margin-top: .3rem; }
+.cd-tag {
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: 100px;
+  padding: .25rem .6rem; white-space: nowrap;
+}
+.cd-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--cd-gap); }
+.cd-grid.units-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cd-grid.units-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-unit { display: flex; flex-direction: column; align-items: center; gap: .35rem; min-width: 0; }
+.cd-num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: clamp(2rem, 7vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.cd-lbl { font-size: var(--text-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+
+/* style: flip */
+.cd[data-style="flip"] .cd-num {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: .5rem .35rem .6rem;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  box-shadow: inset 0 -1px 0 var(--line-strong);
+}
+.cd[data-style="flip"] .cd-num::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+  background: var(--line-strong); opacity: .8;
+}
+/* style: bold */
+.cd[data-style="bold"] .cd-num { font-size: clamp(2.6rem, 11vw, 5.4rem); font-weight: 700; }
+.cd[data-style="bold"] .cd-lbl { color: var(--accent); }
+/* style: compact */
+.cd[data-style="compact"] .cd-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-3) var(--s-5); }
+.cd[data-style="compact"] .cd-num { font-size: clamp(1.5rem, 5vw, 2.3rem); }
+.cd[data-style="compact"] .cd-unit { flex-direction: row; align-items: baseline; gap: .4rem; }
+
+.cd-progress { margin-top: var(--s-5); }
+.cd-progress-bar { height: 6px; border-radius: 100px; background: var(--surface-2); overflow: hidden; }
+.cd-progress-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 100px; transition: width .8s var(--ease-out-soft); }
+.cd-progress-meta { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--ink-soft); margin-top: .5rem; }
+.cd-foot { margin-top: var(--s-5); padding-top: var(--s-4); border-top: 1px solid var(--line); font-size: var(--text-xs); color: var(--ink-soft); display: flex; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+
+.cd.done .cd-num { color: var(--accent); }
+.cd-done-note {
+  display: none; margin-top: var(--s-4); padding: .7rem 1rem; border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--accent); font-weight: 500; font-size: var(--text-sm); text-align: center;
+}
+.cd.done .cd-done-note { display: block; }
+
+/* ambient backgrounds on the big share stage */
+.stage { position: relative; min-height: 100vh; display: grid; place-items: center; padding: var(--s-6); overflow: hidden; }
+.stage .cd { max-width: 760px; width: 100%; }
+.stage.bg-aurora::before {
+  content: ""; position: absolute; inset: -20%;
+  background:
+    radial-gradient(40% 40% at 20% 25%, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%),
+    radial-gradient(45% 45% at 80% 70%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%);
+  filter: blur(30px); opacity: .5; animation: drift 24s var(--ease-in-out) infinite alternate;
+}
+@keyframes drift { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(3%, 3%, 0) scale(1.08); } }
+.stage.bg-grid::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 46px 46px; opacity: .5;
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 45%, #000, transparent 75%);
+  mask-image: radial-gradient(60% 60% at 50% 45%, #000, transparent 75%);
+}
+.stage.bg-dots::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(var(--line-strong) 1.4px, transparent 1.4px);
+  background-size: 26px 26px; opacity: .6;
+}
+.stage > .cd, .stage > .stage-inner { position: relative; z-index: 1; }
+.stage-inner { width: 100%; max-width: 760px; }
+.stage-actions { display: flex; gap: var(--s-3); justify-content: center; margin-top: var(--s-5); flex-wrap: wrap; }
+
+/* ============================================================
+   Bento — occasions
+   ============================================================ */
+.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4); }
+.bento .cell {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--s-5); display: flex; flex-direction: column; gap: .5rem;
+  transition: transform .35s var(--ease-out-soft), border-color .35s, box-shadow .35s;
+}
+.bento .cell:hover { transform: translateY(-4px); border-color: var(--line-strong); box-shadow: var(--shadow-md); }
+.bento .cell.span-2 { grid-column: span 2; }
+.bento .cell.feat { background: linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--accent-soft) 70%, var(--surface))); }
+.bento .cell h3 { font-size: var(--text-lg); }
+.bento .cell p { font-size: var(--text-sm); color: var(--ink-soft); max-width: 40ch; }
+.bento .cell .ico { width: 34px; height: 34px; color: var(--accent); margin-bottom: .3rem; }
+.bento .cell .when { font-size: var(--text-xs); color: var(--ink-soft); margin-top: auto; padding-top: var(--s-3); letter-spacing: .04em; }
+@media (max-width: 860px) { .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bento .cell.span-2 { grid-column: span 2; } }
+@media (max-width: 520px) { .bento { grid-template-columns: 1fr; } .bento .cell.span-2 { grid-column: span 1; } }
+
+/* ============================================================
+   Numbered rows — features
+   ============================================================ */
+.rows { border-top: 1px solid var(--line); }
+.row {
+  display: grid; grid-template-columns: 1fr; gap: var(--s-3) var(--s-6);
+  padding-block: var(--s-6); border-bottom: 1px solid var(--line);
+  transition: background .3s var(--ease-out-soft);
+}
+@media (min-width: 820px) { .row { grid-template-columns: 76px 1fr 1.1fr; align-items: start; } }
+.row:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.row .idx { font-family: var(--font-display); font-size: var(--text-lg); color: var(--accent); font-weight: 600; }
+.row h3 { font-size: var(--text-xl); }
+.row p { color: var(--ink-soft); font-size: var(--text-base); }
+
+/* ============================================================
+   Steps
+   ============================================================ */
+.steps { display: grid; grid-template-columns: 1fr; gap: var(--s-5); }
+@media (min-width: 760px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.step { padding: var(--s-5); border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); }
+.step .n {
+  font-family: var(--font-display); font-size: var(--text-2xl); color: var(--accent);
+  line-height: 1; display: block; margin-bottom: var(--s-3);
+}
+.step h3 { font-size: var(--text-lg); margin-bottom: .4rem; }
+.step p { font-size: var(--text-sm); color: var(--ink-soft); }
+
+/* ============================================================
+   Preset chips
+   ============================================================ */
+.chips { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.chip {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .55rem 1rem; border-radius: 100px; border: 1px solid var(--line);
+  background: var(--surface); font-size: var(--text-sm); font-weight: 500;
+  transition: transform .14s var(--ease-spring), border-color .25s, background .25s;
+}
+.chip:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-2px); }
+.chip:active { transform: scale(.97); }
+.chip svg { width: 16px; height: 16px; color: var(--accent); }
+
+/* ============================================================
+   FAQ
+   ============================================================ */
+.faq { border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary {
+  list-style: none; cursor: pointer; padding: var(--s-5) 0;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
+  font-family: var(--font-display); font-size: var(--text-lg); font-weight: 500;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary .plus { flex: none; width: 22px; height: 22px; position: relative; }
+.faq summary .plus::before, .faq summary .plus::after {
+  content: ""; position: absolute; inset: 50% 0 auto; height: 1.6px; background: var(--accent);
+  transform: translateY(-50%); transition: transform .3s var(--ease-out-soft);
+}
+.faq summary .plus::after { transform: translateY(-50%) rotate(90deg); }
+.faq details[open] summary .plus::after { transform: translateY(-50%) rotate(0); }
+.faq .answer { padding-bottom: var(--s-5); color: var(--ink-soft); max-width: 68ch; }
+.faq details[open] .answer { animation: fade-up .35s var(--ease-out-soft) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } }
+
+/* ============================================================
+   Builder (create view)
+   ============================================================ */
+.page-head { padding-top: clamp(2.5rem, 6vw, 4.5rem); padding-bottom: var(--s-6); }
+.page-head h1 { font-size: var(--text-3xl); }
+.builder { display: grid; grid-template-columns: 1fr; gap: var(--s-6); align-items: start; padding-bottom: var(--s-9); }
+@media (min-width: 1000px) { .builder { grid-template-columns: 1.05fr .95fr; gap: var(--s-7); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: clamp(1.2rem, 3vw, 2rem); }
+.panel + .panel { margin-top: var(--s-5); }
+.panel-title { font-size: var(--text-sm); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: var(--s-5); }
+.field { margin-bottom: var(--s-5); }
+.field:last-child { margin-bottom: 0; }
+.field label, .field .flabel { display: block; font-size: var(--text-sm); font-weight: 500; margin-bottom: .45rem; }
+.field .hint { font-size: var(--text-xs); color: var(--ink-soft); margin-top: .4rem; }
+.input, select.input, textarea.input {
+  width: 100%; padding: .7rem .85rem; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  transition: border-color .2s, box-shadow .2s;
+}
+.input:hover { border-color: var(--line-strong); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
+@media (max-width: 460px) { .two { grid-template-columns: 1fr; } }
+.seg { display: flex; flex-wrap: wrap; gap: .4rem; }
+.seg button {
+  padding: .5rem .85rem; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); font-size: var(--text-sm); color: var(--ink-soft);
+  transition: all .2s var(--ease-out-soft);
+}
+.seg button:hover { color: var(--ink); border-color: var(--line-strong); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.swatches { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--line); transition: transform .14s var(--ease-spring); }
+.swatch:hover { transform: scale(1.1); }
+.swatch[aria-pressed="true"] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--ink); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: .6rem 0; }
+.toggle-row span { font-size: var(--text-sm); }
+.switch { position: relative; width: 44px; height: 25px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch .track { position: absolute; inset: 0; border-radius: 100px; background: var(--surface-2); border: 1px solid var(--line); transition: background .25s var(--ease-out-soft); }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: var(--ink-soft); transition: transform .25s var(--ease-out-soft), background .25s; }
+.switch input:checked ~ .track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked ~ .knob { transform: translateX(19px); background: var(--accent-ink); }
+.switch input:focus-visible ~ .track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+.preview-wrap { position: sticky; top: 92px; }
+@media (max-width: 999px) { .preview-wrap { position: static; } }
+.preview-actions { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-5); }
+.preview-actions .btn { flex: 1 1 auto; }
+
+/* ============================================================
+   Library
+   ============================================================ */
+.lib-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-5); padding-bottom: var(--s-9); }
+@media (min-width: 640px) { .lib-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1040px) { .lib-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.lib-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4);
+  transition: transform .3s var(--ease-out-soft), box-shadow .3s, border-color .3s;
+}
+.lib-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--line-strong); }
+.lib-card .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3); }
+.lib-card h3 { font-size: var(--text-lg); }
+.lib-card .lc-sub { font-size: var(--text-sm); color: var(--ink-soft); margin-top: .25rem; }
+.lib-card .lc-count { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: var(--text-xl); color: var(--accent); letter-spacing: -0.02em; }
+.lib-card .lc-foot { display: flex; gap: .4rem; margin-top: auto; flex-wrap: wrap; }
+.lib-card .lc-foot .btn { padding: .5rem .8rem; font-size: var(--text-xs); }
+.pill { font-size: var(--text-xs); color: var(--ink-soft); border: 1px solid var(--line); border-radius: 100px; padding: .18rem .6rem; letter-spacing: .04em; }
+
+.empty { text-align: center; padding: var(--s-9) var(--s-5); border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); }
+.empty svg { width: 44px; height: 44px; color: var(--accent); margin: 0 auto var(--s-4); }
+.empty h3 { margin-bottom: .5rem; }
+.empty p { color: var(--ink-soft); margin: 0 auto var(--s-5); }
+
+/* ============================================================
+   Guide
+   ============================================================ */
+.guide-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-5); padding-bottom: var(--s-9); }
+@media (min-width: 820px) { .guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.guide-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s-6); }
+.guide-card .ico { width: 30px; height: 30px; color: var(--accent); margin-bottom: var(--s-4); }
+.guide-card h3 { font-size: var(--text-lg); margin-bottom: .5rem; }
+.guide-card p { font-size: var(--text-sm); color: var(--ink-soft); }
+.guide-card code { font-family: var(--font-mono); font-size: .85em; background: var(--surface-2); padding: .15em .45em; border-radius: 5px; border: 1px solid var(--line); }
+.kbd-list { list-style: none; padding: 0; margin: var(--s-4) 0 0; display: grid; gap: .5rem; }
+.kbd-list li { display: flex; justify-content: space-between; gap: var(--s-4); font-size: var(--text-sm); }
+.kbd-list kbd { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: .15rem .45rem; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.site-footer { border-top: 1px solid var(--line); padding-block: var(--s-7) var(--s-6); background: var(--bg-2); }
+.ft-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-6); }
+@media (min-width: 760px) { .ft-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
+.ft-brand p { color: var(--ink-soft); font-size: var(--text-sm); margin-top: var(--s-3); max-width: 34ch; }
+.ft-col h4 { font-size: var(--text-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: var(--s-4); font-family: var(--font-body); font-weight: 600; }
+.ft-col a { display: block; padding: .3rem 0; font-size: var(--text-sm); color: var(--ink-soft); transition: color .2s; }
+.ft-col a:hover { color: var(--accent); }
+.ft-base { margin-top: var(--s-7); padding-top: var(--s-5); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: space-between; font-size: var(--text-xs); color: var(--ink-soft); }
+
+/* ============================================================
+   Toast + confetti
+   ============================================================ */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 140%);
+  background: var(--ink); color: var(--bg); padding: .7rem 1.1rem; border-radius: 100px;
+  font-size: var(--text-sm); z-index: 300; box-shadow: var(--shadow-md);
+  transition: transform .4s var(--ease-out-soft); display: flex; align-items: center; gap: .5rem; max-width: 92vw;
+}
+#toast.show { transform: translate(-50%, 0); }
+#toast svg { width: 16px; height: 16px; color: var(--accent); flex: none; }
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 250; display: none; }
+
+/* ============================================================
+   Reveal
+   ============================================================ */
+[data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .6s var(--ease-out-soft), transform .6s var(--ease-out-soft); }
+[data-reveal].is-revealed { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  [data-reveal] { opacity: 1; transform: none; }
+}
+
+/* mobile nav */
+@media (max-width: 720px) {
+  .nav {
+    position: fixed; inset: 70px 0 auto; flex-direction: column; gap: 0;
+    background: var(--bg); border-bottom: 1px solid var(--line); padding: var(--s-4) var(--s-5) var(--s-6);
+    transform: translateY(-120%); transition: transform .35s var(--ease-out-soft); z-index: 89;
+  }
+  .nav.open { transform: translateY(0); }
+  .nav a { padding: .9rem .2rem; font-size: var(--text-base); border-bottom: 1px solid var(--line); }
+  .nav a::after { display: none; }
+  .menu-btn { display: grid; }
+  .hd-actions .btn-primary { display: none; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container hd-inner">
+    <a class="brand" href="#home" data-nav="home" aria-label="Chronos home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 8.5V16l5 3" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Chronos<span class="dot">.</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Primary">
+      <a href="#create" data-nav="create">Create</a>
+      <a href="#library" data-nav="library">Library</a>
+      <a href="#guide" data-nav="guide">Guide</a>
+    </nav>
+    <div class="hd-actions">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <button class="icon-btn theme-toggle" id="themeBtn" aria-pressed="true" aria-label="Switch to light theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.4 6.4 0 0 0 10.5 10.5Z"/></svg>
+      </button>
+      <a href="#create" data-nav="create" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New countdown
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ========================= HOME ========================= -->
+  <section id="home" class="view is-active" data-title="Chronos — build a countdown for anything">
+    <div class="container hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Countdown studio</span>
+          <h1>Make the waiting <em>count</em>.</h1>
+          <p class="lead">Build a live countdown for anything worth looking forward to — a product launch, an exam, a wedding, a festival morning — then share it with a single link. Any date, any timezone. It counts down, or up.</p>
+          <div class="hero-cta">
+            <a href="#create" data-nav="create" class="btn btn-primary btn-lg">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Create a countdown
+            </a>
+            <a href="#guide" data-nav="guide" class="btn btn-ghost btn-lg">How it works</a>
+          </div>
+          <p class="hero-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            No sign-up. Your countdowns stay in your browser, and links work for everyone you send them to.
+          </p>
+        </div>
+        <div data-reveal>
+          <div id="heroCd"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- occasions -->
+    <div class="block container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Every occasion</span>
+        <h2>If you can name the moment, you can count to it.</h2>
+        <p class="lead">Chronos doesn't care whether it's four months or four hours away. Set the date, choose a look, and let the numbers do the anticipation for you.</p>
+      </div>
+      <div class="bento">
+        <article class="cell span-2 feat" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5 3 21l4.5-1.5M12 3a9 9 0 0 0-9 9"/><path d="M12 3c5 0 9 4 9 9s-4 9-9 9"/><path d="M12 8v4l2.5 1.5"/></svg>
+          <h3>Product &amp; launch days</h3>
+          <p>A release, a funding round, a store opening. Point a countdown at the moment the doors open and drop the link in every channel you own.</p>
+          <span class="when">Works as an embed too — see the guide</span>
+        </article>
+        <article class="cell span-2" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 20V9l7-5 7 5v11"/><path d="M9.5 20v-6h5v6"/></svg>
+          <h3>Exams &amp; deadlines</h3>
+          <p>Boards, entrance tests, thesis submissions, tax dates. Put the day on screen so it stops being a vague dread and starts being a plan.</p>
+          <span class="when">Count down or count up from the date</span>
+        </article>
+        <article class="cell" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10Z"/></svg>
+          <h3>Weddings</h3>
+          <p>One link for the whole guest list.</p>
+          <span class="when">Counts the days, then the hours</span>
+        </article>
+        <article class="cell" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M5 8l2 2M19 8l-2 2M4 14h16l-2 6H6Z"/><circle cx="9" cy="17" r="1"/><circle cx="15" cy="17" r="1"/></svg>
+          <h3>Festivals</h3>
+          <p>Diwali, Eid, Pongal, a birthday at midnight.</p>
+          <span class="when">Set the exact hour, not just the day</span>
+        </article>
+        <article class="cell" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/><circle cx="12" cy="12" r="9"/></svg>
+          <h3>Trips &amp; arrivals</h3>
+          <p>A holiday, a flight, someone coming home.</p>
+          <span class="when">Timezone-aware to the minute</span>
+        </article>
+        <article class="cell" data-reveal>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+          <h3>Anything at all</h3>
+          <p>A retirement, a first day, a habit you're keeping.</p>
+          <span class="when">No limit on how many you make</span>
+        </article>
+      </div>
+    </div>
+
+    <!-- features as rows -->
+    <div class="block container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">What's inside</span>
+        <h2>Small studio, serious about the details.</h2>
+      </div>
+      <div class="rows">
+        <div class="row" data-reveal>
+          <span class="idx">01</span>
+          <h3>Four ways to show time</h3>
+          <p>Digits, a flip-clock, oversized numerals, or a tight inline strip. The same countdown can look calm on a dashboard and loud on a party screen.</p>
+        </div>
+        <div class="row" data-reveal>
+          <span class="idx">02</span>
+          <h3>Real timezones, real minutes</h3>
+          <p>Pick the zone the event actually happens in — IST, GMT, anything IANA. Share it and everyone sees the same instant, wherever they open the link.</p>
+        </div>
+        <div class="row" data-reveal>
+          <span class="idx">03</span>
+          <h3>A link, an embed, a calendar file</h3>
+          <p>Every countdown is encoded into its own URL, so there's nothing to host. Copy the link, paste the embed snippet, or download an <code>.ics</code> for their calendar.</p>
+        </div>
+        <div class="row" data-reveal>
+          <span class="idx">04</span>
+          <h3>A finish worth the wait</h3>
+          <p>When the clock hits zero the display celebrates, then flips into counting up — so the page is still useful after the moment has passed.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- steps -->
+    <div class="block container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Three steps</span>
+        <h2>Made in the time it takes to make tea.</h2>
+      </div>
+      <div class="steps">
+        <div class="step" data-reveal>
+          <span class="n">1</span>
+          <h3>Pick the moment</h3>
+          <p>Name it, choose the date and the exact minute, and set the timezone it lives in.</p>
+        </div>
+        <div class="step" data-reveal>
+          <span class="n">2</span>
+          <h3>Make it yours</h3>
+          <p>Choose a look, an accent colour and a background. The preview updates as you go.</p>
+        </div>
+        <div class="step" data-reveal>
+          <span class="n">3</span>
+          <h3>Send it out</h3>
+          <p>Copy the link, grab the embed, or save it to your library for later.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- presets -->
+    <div class="block container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Start from a moment</span>
+        <h2>Don't want to think? Tap a preset.</h2>
+        <p class="lead">These jump straight into the studio with the date already worked out.</p>
+      </div>
+      <div class="chips" id="presetChips" data-reveal></div>
+    </div>
+
+    <!-- faq -->
+    <div class="block container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Questions</span>
+        <h2>Reasonable things to ask.</h2>
+      </div>
+      <div class="faq" data-reveal>
+        <details>
+          <summary>Do I need an account? <span class="plus"></span></summary>
+          <div class="answer">No. Chronos has no sign-up and no server holding your data. A countdown is stored in your browser and encoded into its own share link, so the link is the countdown. That also means clearing your browser data clears your library — save any link you care about.</div>
+        </details>
+        <details>
+          <summary>Does the link expire? <span class="plus"></span></summary>
+          <div class="answer">Never. The whole countdown — date, timezone, look, colour — is packed into the URL itself. As long as this site is online, the link works, and it keeps working whether the event is next year or last Tuesday.</div>
+        </details>
+        <details>
+          <summary>What happens when the countdown reaches zero? <span class="plus"></span></summary>
+          <div class="answer">It celebrates, then keeps going: with "count up" switched on, the display flips to showing how long it has been since the moment. Turn the celebration off if you'd rather it stayed quiet.</div>
+        </details>
+        <details>
+          <summary>Can I put it on my own website? <span class="plus"></span></summary>
+          <div class="answer">Yes, but only for a page you control. Open any countdown, choose <em>Embed</em>, and paste the snippet — it's an <code>&lt;iframe&gt;</code> pointing at the share link. If you're not sure your site allows embeds, the plain link always works.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= CREATE ========================= -->
+  <section id="create" class="view" data-title="Create — Chronos">
+    <div class="container page-head">
+      <span class="eyebrow">Countdown studio</span>
+      <h1>Build your countdown.</h1>
+      <p class="lead">Everything on the right is live — change anything on the left and watch it respond.</p>
+    </div>
+    <div class="container builder">
+      <div>
+        <div class="panel">
+          <div class="panel-title">The moment</div>
+          <div class="field">
+            <label for="f-title">Title</label>
+            <input class="input" id="f-title" type="text" maxlength="80" placeholder="e.g. Diwali at home" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="f-sub">Subtitle <span style="color:var(--ink-soft);font-weight:400">(optional)</span></label>
+            <input class="input" id="f-sub" type="text" maxlength="120" placeholder="e.g. The lamp-lighting, terrace, 7pm" autocomplete="off">
+          </div>
+          <div class="field two">
+            <div>
+              <label for="f-date">Date</label>
+              <input class="input" id="f-date" type="date">
+            </div>
+            <div>
+              <label for="f-time">Time</label>
+              <input class="input" id="f-time" type="time">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-tz">Timezone</label>
+            <select class="input" id="f-tz"></select>
+            <p class="hint">The zone the event happens in. Visitors see the same instant in their own local time.</p>
+          </div>
+          <div class="field">
+            <span class="flabel">Direction</span>
+            <div class="seg" id="f-dir" role="group" aria-label="Count direction">
+              <button type="button" data-val="down" aria-pressed="true">Count down to it</button>
+              <button type="button" data-val="up" aria-pressed="false">Count up since it</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Look &amp; feel</div>
+          <div class="field">
+            <span class="flabel">Display style</span>
+            <div class="seg" id="f-style" role="group" aria-label="Display style">
+              <button type="button" data-val="digits" aria-pressed="true">Digits</button>
+              <button type="button" data-val="flip" aria-pressed="false">Flip clock</button>
+              <button type="button" data-val="bold" aria-pressed="false">Bold</button>
+              <button type="button" data-val="compact" aria-pressed="false">Compact</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="flabel">Accent</span>
+            <div class="swatches" id="f-accent"></div>
+          </div>
+          <div class="field">
+            <span class="flabel">Background</span>
+            <div class="seg" id="f-bg" role="group" aria-label="Background">
+              <button type="button" data-val="plain" aria-pressed="true">Plain</button>
+              <button type="button" data-val="aurora" aria-pressed="false">Aurora</button>
+              <button type="button" data-val="grid" aria-pressed="false">Grid</button>
+              <button type="button" data-val="dots" aria-pressed="false">Dots</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Details</div>
+          <div class="field">
+            <span class="flabel">Show these units</span>
+            <div class="seg" id="f-units" role="group" aria-label="Units">
+              <button type="button" data-unit="days" aria-pressed="true">Days</button>
+              <button type="button" data-unit="hours" aria-pressed="true">Hours</button>
+              <button type="button" data-unit="minutes" aria-pressed="true">Minutes</button>
+              <button type="button" data-unit="seconds" aria-pressed="true">Seconds</button>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span>Progress bar</span>
+            <label class="switch"><input type="checkbox" id="f-progress" checked><span class="track"></span><span class="knob"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Celebrate at zero</span>
+            <label class="switch"><input type="checkbox" id="f-celebrate" checked><span class="track"></span><span class="knob"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Keep counting after zero</span>
+            <label class="switch"><input type="checkbox" id="f-keep" checked><span class="track"></span><span class="knob"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-wrap">
+        <div id="builderCd"></div>
+        <div class="preview-actions">
+          <button class="btn btn-primary" id="act-save">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            Save to library
+          </button>
+          <button class="btn btn-ghost" id="act-share">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            Copy link
+          </button>
+          <button class="btn btn-ghost" id="act-open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            Open full screen
+          </button>
+          <button class="btn btn-ghost" id="act-ics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            Add to calendar
+          </button>
+          <button class="btn btn-ghost" id="act-embed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6"/></svg>
+            Embed
+          </button>
+          <button class="btn btn-quiet" id="act-reset">Reset</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= LIBRARY ========================= -->
+  <section id="library" class="view" data-title="Library — Chronos">
+    <div class="container page-head">
+      <span class="eyebrow">Saved in this browser</span>
+      <h1>Your library.</h1>
+      <p class="lead">Countdowns you've saved live here, on this device only. Open one to keep editing, or copy its link to take it anywhere.</p>
+    </div>
+    <div class="container">
+      <div id="libBody"></div>
+    </div>
+  </section>
+
+  <!-- ========================= GUIDE ========================= -->
+  <section id="guide" class="view" data-title="Guide — Chronos">
+    <div class="container page-head">
+      <span class="eyebrow">The manual</span>
+      <h1>How to get the most out of it.</h1>
+      <p class="lead">Short answers, no fluff. Everything here is doable from the create page.</p>
+    </div>
+    <div class="container guide-grid">
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+        <h3>Sharing</h3>
+        <p>Hit <em>Copy link</em> and send it anywhere. The entire countdown travels inside the URL, so there's no account, no database and nothing to expire. Anyone who opens it sees the same instant.</p>
+      </article>
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6"/></svg>
+        <h3>Embedding</h3>
+        <p>Choose <em>Embed</em> to get an <code>&lt;iframe&gt;</code> snippet. Paste it into any page you control. Set a fixed height — 360px suits the digits and bold styles; 300px for compact.</p>
+      </article>
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        <h3>Timezones</h3>
+        <p>Set the zone the event truly happens in. A 7pm lamp-lighting in Delhi stays 7pm in Delhi; someone in London opening the link sees it as 1:30pm their time — correctly.</p>
+      </article>
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        <h3>Calendars</h3>
+        <p><em>Add to calendar</em> downloads an <code>.ics</code> file with the event's start and end. Open it and your calendar app takes it from there — a handy way to remember your own deadline.</p>
+      </article>
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+        <h3>Full-screen mode</h3>
+        <p><em>Open full screen</em> gives you a clean stage with no header or footer — ideal for a projector, a TV at a party, or a kiosk screen at an event.</p>
+      </article>
+      <article class="guide-card">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+        <h3>Keyboard</h3>
+        <ul class="kbd-list">
+          <li><span>Go to create</span> <kbd>c</kbd></li>
+          <li><span>Open library</span> <kbd>l</kbd></li>
+          <li><span>Copy current link</span> <kbd>Ctrl</kbd> + <kbd>S</kbd></li>
+          <li><span>Close menu</span> <kbd>Esc</kbd></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========================= SHARED ========================= -->
+  <section id="shared" class="view" data-title="Countdown — Chronos">
+    <div class="stage" id="stage">
+      <div class="stage-inner">
+        <div id="sharedCd"></div>
+        <div class="stage-actions">
+          <a href="#create" data-nav="create" class="btn btn-primary">Create your own</a>
+          <button class="btn btn-ghost" id="shared-full">Full screen</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container ft-grid">
+    <div class="ft-brand">
+      <a class="brand" href="#home" data-nav="home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 8.5V16l5 3" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Chronos<span class="dot">.</span>
+      </a>
+      <p>A countdown studio for the moments people actually wait for. Built to run anywhere, with nothing to sign up for.</p>
+    </div>
+    <div class="ft-col">
+      <h4>Studio</h4>
+      <a href="#create" data-nav="create">Create a countdown</a>
+      <a href="#library" data-nav="library">Your library</a>
+      <a href="#guide" data-nav="guide">Guide</a>
+    </div>
+    <div class="ft-col">
+      <h4>Good to know</h4>
+      <a href="#guide" data-nav="guide">Sharing &amp; embeds</a>
+      <a href="#guide" data-nav="guide">Timezones</a>
+      <a href="#home" data-nav="home">How it works</a>
+    </div>
+  </div>
+  <div class="container ft-base">
+    <span>Chronos — a small, private countdown studio.</span>
+    <span>Your countdowns stay on your device. No accounts, no tracking.</span>
+  </div>
+</footer>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- helpers ---------- */
+  function pad(n, w) { n = String(n); while (n.length < (w || 2)) n = "0" + n; return n; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+  function slug(s) { return String(s || "countdown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "countdown"; }
+  function isoLocal(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function hexSoft(hex, a) {
+    a = a == null ? 0.16 : a;
+    var c = String(hex || "#FF7A45").replace("#", "");
+    if (c.length === 3) c = c.split("").map(function (x) { return x + x; }).join("");
+    var r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+  function hashStr(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+  function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/[,;]/g, function (c) { return "\\" + c; }).replace(/\r?\n/g, "\\n"); }
+  function localZone() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } }
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement, themeBtn = $("#themeBtn");
+  function setTheme(t, persist) {
+    root.dataset.theme = t;
+    themeBtn.setAttribute("aria-pressed", String(t === "dark"));
+    themeBtn.setAttribute("aria-label", t === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    var m = $('meta[name="theme-color"]');
+    if (m) m.setAttribute("content", getComputedStyle(root).getPropertyValue("--bg").trim());
+    if (persist) localStorage.setItem("chronos-theme", t);
+  }
+  themeBtn.addEventListener("click", function () { setTheme(root.dataset.theme === "dark" ? "light" : "dark"); });
+  setTheme(localStorage.getItem("chronos-theme") || "dark", false);
+
+  /* ---------- header + menu ---------- */
+  var header = $(".site-header"), menuBtn = $("#menuBtn"), nav = $("#nav");
+  function onScroll() { header.classList.toggle("is-condensed", window.scrollY > 12); }
+  onScroll(); window.addEventListener("scroll", onScroll, { passive: true });
+  menuBtn.addEventListener("click", function () { var open = nav.classList.toggle("open"); menuBtn.setAttribute("aria-expanded", String(open)); });
+  function closeMenu() { nav.classList.remove("open"); menuBtn.setAttribute("aria-expanded", "false"); }
+
+  /* ---------- toast ---------- */
+  var toast = $("#toast"), toastTimer;
+  var checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  function showToast(msg) {
+    toast.innerHTML = checkIcon + "<span></span>";
+    toast.lastChild.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 2600);
+  }
+
+  /* ---------- timezone math ---------- */
+  function zoneOffset(zone, ts) {
+    try {
+      var t = Math.floor(ts / 1000) * 1000;
+      var dtf = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      var parts = dtf.formatToParts(new Date(t)), o = {};
+      parts.forEach(function (x) { o[x.type] = x.value; });
+      var asUTC = Date.UTC(+o.year, +o.month - 1, +o.day, (+o.hour) % 24, +o.minute, +o.second);
+      return asUTC - t;
+    } catch (e) { return 0; }
+  }
+  function zonedToUtc(y, mo, d, h, mi, zone) {
+    var guess = Date.UTC(y, mo - 1, d, h, mi, 0);
+    var off = zoneOffset(zone, guess);
+    var ts = guess - off;
+    off = zoneOffset(zone, ts);
+    return guess - off;
+  }
+  function fmtInZone(ts, zone) {
+    try {
+      return new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ts));
+    } catch (e) { return new Date(ts).toString(); }
+  }
+  var ZONES = [
+    ["Asia/Kolkata", "India"], ["Asia/Dubai", "Dubai"], ["Asia/Karachi", "Karachi"], ["Asia/Dhaka", "Dhaka"],
+    ["Asia/Kathmandu", "Kathmandu"], ["Asia/Colombo", "Colombo"], ["Asia/Singapore", "Singapore"], ["Asia/Shanghai", "Shanghai"],
+    ["Asia/Tokyo", "Tokyo"], ["Asia/Jakarta", "Jakarta"], ["Asia/Riyadh", "Riyadh"], ["Europe/London", "London"],
+    ["Europe/Paris", "Paris"], ["Europe/Berlin", "Berlin"], ["Europe/Madrid", "Madrid"], ["Europe/Moscow", "Moscow"],
+    ["Africa/Cairo", "Cairo"], ["Africa/Lagos", "Lagos"], ["Africa/Johannesburg", "Johannesburg"], ["America/New_York", "New York"],
+    ["America/Chicago", "Chicago"], ["America/Denver", "Denver"], ["America/Los_Angeles", "Los Angeles"], ["America/Sao_Paulo", "Sao Paulo"],
+    ["America/Mexico_City", "Mexico City"], ["Australia/Sydney", "Sydney"], ["Australia/Perth", "Perth"], ["Pacific/Auckland", "Auckland"], ["UTC", "UTC"]
+  ];
+
+  /* ---------- config model ---------- */
+  var ACCENTS = ["#FF7A45", "#E8B84B", "#6FE3C4", "#7AA2FF", "#C79BFF", "#FF6FA5", "#8BE04E", "#F5F0E6"];
+  var DEFAULT_CFG = {
+    title: "", sub: "", date: "", time: "18:00", tz: localZone(), dir: "down",
+    style: "digits", accent: "#FF7A45", bg: "plain",
+    units: { days: true, hours: true, minutes: true, seconds: true },
+    progress: true, celebrate: true, keep: true, ref: Date.now()
+  };
+  var cfg = Object.assign({}, DEFAULT_CFG);
+  cfg.date = isoLocal(new Date(Date.now() + 30 * 86400000));
+  var editingId = null, sharedCfg = null;
+
+  /* ---------- url encoding ---------- */
+  function b64u(str) {
+    var bytes = new TextEncoder().encode(str), bin = "";
+    bytes.forEach(function (x) { bin += String.fromCharCode(x); });
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function unb64u(str) {
+    str = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (str.length % 4) str += "=";
+    var bin = atob(str), bytes = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
+    return new TextDecoder().decode(bytes);
+  }
+  function shareUrl(c) { return location.origin + location.pathname + "#c=" + b64u(JSON.stringify(c)); }
+
+  /* ---------- countdown engine ---------- */
+  function computeTarget(c) {
+    if (!c.date) return null;
+    var dp = c.date.split("-").map(Number), tp = (c.time || "00:00").split(":").map(Number);
+    if (!dp[0]) return null;
+    return zonedToUtc(dp[0], dp[1] || 1, dp[2] || 1, tp[0] || 0, tp[1] || 0, c.tz || "UTC");
+  }
+  function buildCd(el, c) {
+    var target = computeTarget(c);
+    el._cfg = c; el._first = true; el._celebrated = false;
+    if (target == null) {
+      el.innerHTML = '<div class="cd"><div class="cd-head"><div class="cd-title">Choose a date</div></div><div class="cd-foot"><span>Set a date to see the countdown</span></div></div>';
+      return;
+    }
+    var u = c.units, order = [];
+    if (u.days) order.push(["days", "Days"]);
+    if (u.hours) order.push(["hours", "Hours"]);
+    if (u.minutes) order.push(["minutes", "Minutes"]);
+    if (u.seconds) order.push(["seconds", "Seconds"]);
+    if (!order.length) { order = [["seconds", "Seconds"]]; }
+    el._order = order;
+    var n = order.length;
+    var showProgress = c.progress && c.dir === "down";
+    var h = '<div class="cd" data-style="' + c.style + '" style="--accent:' + c.accent + ";--accent-soft:" + hexSoft(c.accent) + '">';
+    h += '<div class="cd-head"><div><div class="cd-title">' + esc(c.title || "Untitled countdown") + "</div>" + (c.sub ? '<div class="cd-sub">' + esc(c.sub) + "</div>" : "") + '</div><span class="cd-tag">To go</span></div>';
+    h += '<div class="cd-grid" style="grid-template-columns:repeat(' + n + ',minmax(0,1fr))">';
+    order.forEach(function (o) { h += '<div class="cd-unit"><span class="cd-num" data-k="' + o[0] + '">0</span><span class="cd-lbl">' + o[1] + "</span></div>"; });
+    h += "</div>";
+    if (showProgress) {
+      h += '<div class="cd-progress"><div class="cd-progress-bar"><span style="width:0%"></span></div><div class="cd-progress-meta"><span>0% elapsed</span><span></span></div></div>';
+    } else {
+      h += '<div class="cd-foot"><span class="cd-foot-when"></span><span>' + esc(c.tz) + "</span></div>";
+    }
+    h += '<div class="cd-done-note">The moment has arrived.</div>';
+    h += "</div>";
+    el.innerHTML = h;
+    updateCd(el, Date.now());
+  }
+  function updateCd(el, now) {
+    var c = el._cfg; var target = computeTarget(c); if (target == null) return;
+    var past, diff;
+    if (c.dir === "down") { diff = target - now; if (diff < 0) { past = true; diff = -diff; } else past = false; }
+    else { diff = now - target; if (diff >= 0) { past = true; } else { past = false; diff = -diff; } }
+    var s = Math.floor(diff / 1000), u = c.units, rem = s, vals = {};
+    if (u.days) { vals.days = Math.floor(rem / 86400); rem -= vals.days * 86400; }
+    if (u.hours) { vals.hours = Math.floor(rem / 3600); rem -= vals.hours * 3600; }
+    if (u.minutes) { vals.minutes = Math.floor(rem / 60); rem -= vals.minutes * 60; }
+    if (u.seconds) { vals.seconds = Math.floor(rem); }
+    el._order.forEach(function (o) {
+      var k = o[0], node = el.querySelector('[data-k="' + k + '"]'); if (!node) return;
+      var v = k === "days" ? String(vals[k] || 0) : pad(vals[k] || 0);
+      if (node.textContent !== v) node.textContent = v;
+    });
+    var tag = el.querySelector(".cd-tag"); if (tag) tag.textContent = past ? (c.dir === "down" ? "Arrived" : "Elapsed") : "To go";
+    var when = el.querySelector(".cd-foot-when"); if (when) when.textContent = (past ? "Since " : "Until ") + fmtInZone(target, c.tz);
+    var bar = el.querySelector(".cd-progress-bar > span"), meta = el.querySelector(".cd-progress-meta");
+    if (bar) {
+      var ref = c.ref || 0, total = target - ref, p = total > 0 ? Math.max(0, Math.min(1, (now - ref) / total)) : 0;
+      bar.style.width = (p * 100).toFixed(1) + "%";
+      if (meta && meta.children[0]) meta.children[0].textContent = Math.round(p * 100) + "% elapsed";
+      if (meta && meta.children[1]) meta.children[1].textContent = (past ? "since " : "until ") + fmtInZone(target, c.tz);
+    }
+    var cd = el.querySelector(".cd"); if (cd) cd.classList.toggle("done", past);
+    if (el._first) { el._first = false; el._celebrated = past; return; }
+    if (past && !el._celebrated) { el._celebrated = true; if (c.celebrate) celebrate(c.accent); }
+    if (!past) el._celebrated = false;
+  }
+
+  /* ---------- confetti ---------- */
+  var cvs = $("#confetti"), ctx = cvs.getContext("2d"), confParts = [], confActive = false, confEnd = 0;
+  function resizeCvs() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; }
+  window.addEventListener("resize", resizeCvs);
+  function celebrate(accent) {
+    if (reduceMotion) return;
+    resizeCvs(); cvs.style.display = "block";
+    var cols = [accent || "#FF7A45", "#ECEDF2", "#E8B84B", "#6FE3C4", "#7AA2FF", "#FF6FA5"];
+    for (var i = 0; i < 150; i++) {
+      confParts.push({ x: Math.random() * cvs.width, y: -30 - Math.random() * cvs.height * 0.5, vx: (Math.random() - 0.5) * 2.6, vy: 1.6 + Math.random() * 3.4, sz: 5 + Math.random() * 7, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.32, c: cols[(Math.random() * cols.length) | 0] });
+    }
+    confEnd = Date.now() + 4200;
+    if (!confActive) { confActive = true; requestAnimationFrame(confStep); }
+  }
+  function confStep() {
+    var now = Date.now();
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    confParts.forEach(function (p) {
+      p.vy += 0.05; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = now > confEnd ? Math.max(0, 1 - (now - confEnd) / 600) : 1;
+      ctx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz * 0.62);
+      ctx.restore();
+    });
+    confParts = confParts.filter(function (p) { return p.y < cvs.height + 40 && now < confEnd + 700; });
+    if (now < confEnd + 700 && confParts.length) requestAnimationFrame(confStep);
+    else { confActive = false; confParts = []; ctx.clearRect(0, 0, cvs.width, cvs.height); cvs.style.display = "none"; }
+  }
+
+  /* ---------- global tick ---------- */
+  var live = [];
+  function mountCd(el, c) { var e = { el: el, cfg: c }; live.push(e); buildCd(el, c); return e; }
+  setInterval(function () { var now = Date.now(); live.forEach(function (e) { if (document.body.contains(e.el)) updateCd(e.el, now); }); }, 1000);
+
+  /* ---------- router ---------- */
+  var routing = false;
+  function activate(current, next) {
+    if (current) current.classList.remove("is-active", "is-leaving");
+    next.classList.add("is-active");
+    window.scrollTo(0, 0);
+    $$("[data-nav]").forEach(function (a) {
+      if (a.getAttribute("data-nav") === next.id) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    document.title = next.dataset.title || document.title;
+    document.body.classList.toggle("immersive", next.id === "shared");
+    initReveal(next);
+  }
+  function go(id) {
+    var current = $(".view.is-active"), next = document.getElementById(id);
+    if (!next || next === current || routing) return;
+    routing = true;
+    if (document.startViewTransition && !reduceMotion) {
+      document.startViewTransition(function () { activate(current, next); }).finished.finally(function () { routing = false; });
+      return;
+    }
+    if (reduceMotion) { activate(current, next); routing = false; return; }
+    current.classList.add("is-leaving"); current.classList.remove("is-active");
+    setTimeout(function () {
+      next.classList.add("is-active", "is-entering");
+      void next.offsetWidth;
+      next.classList.remove("is-entering");
+      activate(current, next);
+      setTimeout(function () { routing = false; }, 300);
+    }, 180);
+  }
+  function navigateTo(id) { if (location.hash.slice(1) !== id) location.hash = id; go(id); }
+  function openShared(c) {
+    var merged = Object.assign({}, DEFAULT_CFG, c);
+    merged.units = Object.assign({ days: true, hours: true, minutes: true, seconds: true }, c.units || {});
+    merged.celebrate = c.celebrate !== false;
+    merged.keep = c.keep !== false;
+    merged.progress = c.progress !== false;
+    merged.ref = c.ref || Date.now();
+    sharedCfg = merged;
+    $("#stage").className = "stage bg-" + (merged.bg || "plain");
+    mountCd($("#sharedCd"), merged);
+    go("shared");
+  }
+  function routeFromHash() {
+    var h = location.hash.slice(1);
+    if (h.indexOf("c=") === 0) {
+      try { openShared(JSON.parse(unb64u(h.slice(2)))); }
+      catch (e) { showToast("That countdown link looks broken"); navigateTo("home"); }
+      return;
+    }
+    go(document.getElementById(h) ? h : "home");
+  }
+  window.addEventListener("hashchange", routeFromHash);
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-nav]");
+    if (a) { e.preventDefault(); navigateTo(a.dataset.nav); closeMenu(); }
+  });
+
+  /* ---------- reveal ---------- */
+  var io = null;
+  function initReveal(scope) {
+    var els = $$("[data-reveal]", scope || document).filter(function (e) { return !e.classList.contains("is-revealed"); });
+    if (!els.length) return;
+    if (reduceMotion) { els.forEach(function (e) { e.classList.add("is-revealed"); }); return; }
+    if (!io) {
+      io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (x) { if (x.isIntersecting) { x.target.classList.add("is-revealed"); io.unobserve(x.target); } });
+      }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    }
+    els.forEach(function (e, i) { e.style.transitionDelay = ((i % 4) * 60) + "ms"; io.observe(e); });
+  }
+
+  /* ---------- form ---------- */
+  function buildTZ() {
+    var sel = $("#f-tz"), lz = localZone(), list = ZONES.slice();
+    if (!list.some(function (z) { return z[0] === lz; })) list.unshift([lz, lz]);
+    sel.innerHTML = list.map(function (z) { return '<option value="' + z[0] + '">' + esc(z[1]) + " \u2014 " + z[0] + "</option>"; }).join("");
+  }
+  function buildAccents() {
+    var wrap = $("#f-accent");
+    ACCENTS.forEach(function (hex) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "swatch"; b.style.background = hex;
+      b.setAttribute("aria-pressed", String(hex === cfg.accent));
+      b.setAttribute("aria-label", "Accent " + hex);
+      b.addEventListener("click", function () {
+        cfg.accent = hex;
+        $$("#f-accent .swatch").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        apply();
+      });
+      wrap.appendChild(b);
+    });
+  }
+  function syncForm() {
+    $("#f-title").value = cfg.title || "";
+    $("#f-sub").value = cfg.sub || "";
+    $("#f-date").value = cfg.date || "";
+    $("#f-time").value = cfg.time || "18:00";
+    $("#f-tz").value = cfg.tz;
+    $$("#f-dir button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.val === cfg.dir)); });
+    $$("#f-style button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.val === cfg.style)); });
+    $$("#f-bg button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.val === cfg.bg)); });
+    $$("#f-units button").forEach(function (b) { b.setAttribute("aria-pressed", String(!!cfg.units[b.dataset.unit])); });
+    $$("#f-accent .swatch").forEach(function (b, i) { b.setAttribute("aria-pressed", String(ACCENTS[i] === cfg.accent)); });
+    $("#f-progress").checked = !!cfg.progress;
+    $("#f-celebrate").checked = !!cfg.celebrate;
+    $("#f-keep").checked = !!cfg.keep;
+  }
+  function apply() { buildCd($("#builderCd"), cfg); }
+
+  function bindForm() {
+    $("#f-title").addEventListener("input", function () { cfg.title = this.value; apply(); });
+    $("#f-sub").addEventListener("input", function () { cfg.sub = this.value; apply(); });
+    $("#f-date").addEventListener("input", function () { cfg.date = this.value; apply(); });
+    $("#f-time").addEventListener("input", function () { cfg.time = this.value; apply(); });
+    $("#f-tz").addEventListener("change", function () { cfg.tz = this.value; apply(); });
+    function seg(sel, key) {
+      $$(sel + " button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (b.dataset.unit) {
+            cfg.units[b.dataset.unit] = !cfg.units[b.dataset.unit];
+            if (!cfg.units.days && !cfg.units.hours && !cfg.units.minutes && !cfg.units.seconds) cfg.units.seconds = true;
+            syncForm();
+          } else {
+            cfg[key] = b.dataset.val;
+            $$(sel + " button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+          }
+          apply();
+        });
+      });
+    }
+    seg("#f-dir", "dir"); seg("#f-style", "style"); seg("#f-bg", "bg"); seg("#f-units", "units");
+    $("#f-progress").addEventListener("change", function () { cfg.progress = this.checked; apply(); });
+    $("#f-celebrate").addEventListener("change", function () { cfg.celebrate = this.checked; });
+    $("#f-keep").addEventListener("change", function () { cfg.keep = this.checked; });
+  }
+
+  /* ---------- clipboard + files ---------- */
+  function copy(text, msg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { showToast(msg || "Copied"); }, function () { fallbackCopy(text, msg); });
+    } else fallbackCopy(text, msg);
+  }
+  function fallbackCopy(text, msg) {
+    var t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); showToast(msg || "Copied"); } catch (e) { showToast("Copy failed \u2014 select it manually"); }
+    t.remove();
+  }
+  function toICSDate(ts) { var d = new Date(ts); return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + "Z"; }
+  function downloadICS(c) {
+    var target = computeTarget(c);
+    if (target == null) { showToast("Set a date first"); return; }
+    var end = target + 3600000;
+    var uid = "chronos-" + Math.abs(hashStr((c.title || "") + target)) + "@chronos";
+    var ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Chronos//Countdown//EN", "BEGIN:VEVENT", "UID:" + uid,
+      "DTSTAMP:" + toICSDate(Date.now()), "DTSTART:" + toICSDate(target), "DTEND:" + toICSDate(end),
+      "SUMMARY:" + icsEsc(c.title || "Countdown"), "DESCRIPTION:" + icsEsc((c.sub ? c.sub + " \u2014 " : "") + "counted with Chronos"),
+      "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    var blob = new Blob([ics], { type: "text/calendar" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = slug(c.title || "countdown") + ".ics";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    showToast("Calendar file downloaded");
+  }
+  function embedSnippet(c) {
+    return '<iframe src="' + shareUrl(c) + '" title="' + (c.title || "Countdown").replace(/"/g, "") + '" width="100%" height="360" style="border:0;border-radius:14px" loading="lazy"></iframe>';
+  }
+
+  /* ---------- library ---------- */
+  var LS = "chronos.library";
+  function getLib() { try { return JSON.parse(localStorage.getItem(LS)) || []; } catch (e) { return []; } }
+  function setLib(a) { try { localStorage.setItem(LS, JSON.stringify(a)); } catch (e) { showToast("Storage is full \u2014 could not save"); } }
+  function saveCfg() {
+    if (computeTarget(cfg) == null) { showToast("Set a date before saving"); return; }
+    var lib = getLib();
+    var item = Object.assign({}, cfg);
+    if (editingId) {
+      var idx = lib.map(function (x) { return x.id; }).indexOf(editingId);
+      item.id = editingId; item.savedAt = Date.now();
+      if (idx >= 0) lib[idx] = item; else lib.unshift(item);
+      showToast("Updated in your library");
+    } else {
+      item.id = "c" + Date.now(); item.savedAt = Date.now();
+      lib.unshift(item);
+      editingId = item.id;
+      showToast("Saved to your library");
+    }
+    setLib(lib); renderLib();
+  }
+  function renderLib() {
+    var lib = getLib(), body = $("#libBody");
+    if (!lib.length) {
+      body.innerHTML = '<div class="empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>' +
+        "<h3>No countdowns yet</h3>" +
+        "<p>Anything you save from the studio lands here, kept privately on this device.</p>" +
+        '<a class="btn btn-primary" href="#create" data-nav="create">Create your first</a></div>';
+      return;
+    }
+    body.innerHTML = '<div class="lib-grid">' + lib.map(function (item) {
+      return '<article class="lib-card" data-id="' + item.id + '">' +
+        '<div class="lc-top"><div><h3>' + esc(item.title || "Untitled") + "</h3>" +
+        (item.sub ? '<div class="lc-sub">' + esc(item.sub) + "</div>" : "") + "</div>" +
+        '<span class="pill">' + (item.dir === "up" ? "count up" : "count down") + "</span></div>" +
+        '<div class="lc-mount" data-mount="' + item.id + '"></div>' +
+        '<div class="lc-foot">' +
+        '<button class="btn btn-ghost" data-act="open">Open</button>' +
+        '<button class="btn btn-ghost" data-act="edit">Edit</button>' +
+        '<button class="btn btn-ghost" data-act="copy">Copy link</button>' +
+        '<button class="btn btn-quiet" data-act="del">Delete</button>' +
+        "</div></article>";
+    }).join("") + "</div>";
+    $$("#libBody [data-mount]").forEach(function (m) {
+      var item = lib.filter(function (x) { return x.id === m.dataset.mount; })[0];
+      if (!item) return;
+      var c = Object.assign({}, item, { style: "compact", progress: false, celebrate: false });
+      c.units = Object.assign({ days: true, hours: true, minutes: true, seconds: true }, item.units || {});
+      var holder = document.createElement("div");
+      m.appendChild(holder);
+      mountCd(holder, c);
+    });
+  }
+  $("#libBody").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    var card = btn.closest(".lib-card"), id = card && card.dataset.id;
+    var lib = getLib(), item = lib.filter(function (x) { return x.id === id; })[0];
+    if (!item) return;
+    var act = btn.dataset.act;
+    if (act === "open") openShared(item);
+    else if (act === "edit") {
+      cfg = Object.assign({}, DEFAULT_CFG, item);
+      cfg.units = Object.assign({ days: true, hours: true, minutes: true, seconds: true }, item.units || {});
+      editingId = id; syncForm(); apply(); navigateTo("create");
+      showToast("Editing \u201C" + (item.title || "countdown") + "\u201D");
+    } else if (act === "copy") copy(shareUrl(item), "Link copied");
+    else if (act === "del") {
+      setLib(lib.filter(function (x) { return x.id !== id; }));
+      renderLib(); showToast("Deleted");
+    }
+  });
+
+  /* ---------- presets ---------- */
+  var DIWALI = ["2026-11-08", "2027-10-29", "2028-10-17", "2029-11-05", "2030-10-26"];
+  function nextDiwali() { var t = isoLocal(new Date()); for (var i = 0; i < DIWALI.length; i++) if (DIWALI[i] >= t) return DIWALI[i]; return DIWALI[DIWALI.length - 1]; }
+  var PRESETS = [
+    { label: "New Year", make: function () { var y = new Date().getFullYear() + 1; return { title: "New Year " + y, sub: "Midnight, local time", date: y + "-01-01", time: "00:00", style: "bold", bg: "aurora", accent: "#E8B84B" }; } },
+    { label: "Diwali", make: function () { return { title: "Diwali", sub: "Lamps lit at dusk", date: nextDiwali(), time: "18:30", style: "flip", bg: "dots", accent: "#FF7A45" }; } },
+    { label: "Christmas", make: function () { var y = new Date().getFullYear(); var d = y + "-12-25"; if (new Date(d + "T23:59") < new Date()) d = (y + 1) + "-12-25"; return { title: "Christmas", sub: "The morning of", date: d, time: "00:00", style: "digits", accent: "#6FE3C4" }; } },
+    { label: "Tomorrow morning", make: function () { return { title: "Tomorrow", sub: "Kick-off at nine", date: isoLocal(new Date(Date.now() + 86400000)), time: "09:00", style: "compact", bg: "plain" }; } },
+    { label: "End of the month", make: function () { var d = new Date(); var last = new Date(d.getFullYear(), d.getMonth() + 1, 0); return { title: "Month close", sub: "Last day", date: isoLocal(last), time: "23:59", style: "digits" }; } },
+    { label: "One week out", make: function () { return { title: "One week to go", sub: "", date: isoLocal(new Date(Date.now() + 7 * 86400000)), time: "18:00", style: "flip" }; } }
+  ];
+  var sparkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>';
+  function renderPresets() {
+    var wrap = $("#presetChips");
+    PRESETS.forEach(function (p) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.innerHTML = sparkIcon + "<span></span>";
+      b.querySelector("span").textContent = p.label;
+      b.addEventListener("click", function () {
+        var c = p.make();
+        cfg = Object.assign({}, DEFAULT_CFG, cfg, c);
+        cfg.units = Object.assign({ days: true, hours: true, minutes: true, seconds: true }, cfg.units || {});
+        editingId = null; syncForm(); apply(); navigateTo("create");
+        showToast("Loaded \u201C" + p.label + "\u201D");
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  /* ---------- actions ---------- */
+  function bindActions() {
+    $("#act-save").addEventListener("click", saveCfg);
+    $("#act-share").addEventListener("click", function () { copy(shareUrl(cfg), "Share link copied"); });
+    $("#act-open").addEventListener("click", function () {
+      openShared(cfg);
+      setTimeout(function () { var st = $("#stage"); if (st.requestFullscreen) st.requestFullscreen().catch(function () {}); }, 320);
+    });
+    $("#act-ics").addEventListener("click", function () { downloadICS(cfg); });
+    $("#act-embed").addEventListener("click", function () { copy(embedSnippet(cfg), "Embed code copied"); });
+    $("#act-reset").addEventListener("click", function () {
+      cfg = Object.assign({}, DEFAULT_CFG);
+      cfg.date = isoLocal(new Date(Date.now() + 30 * 86400000));
+      cfg.time = "18:00"; cfg.tz = localZone(); cfg.ref = Date.now();
+      editingId = null; syncForm(); apply(); showToast("Reset");
+    });
+    $("#shared-full").addEventListener("click", function () {
+      var st = $("#stage");
+      if (!document.fullscreenElement) { if (st.requestFullscreen) st.requestFullscreen().catch(function () {}); }
+      else if (document.exitFullscreen) document.exitFullscreen();
+    });
+  }
+
+  /* ---------- keyboard ---------- */
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea") return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); copy(shareUrl(cfg), "Share link copied"); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "c") navigateTo("create");
+    else if (e.key === "l") navigateTo("library");
+    else if (e.key === "Escape") closeMenu();
+  });
+
+  /* ---------- hero demo ---------- */
+  function heroCfg() {
+    var y = new Date().getFullYear();
+    return {
+      title: "New Year " + (y + 1), sub: "Midnight, local time",
+      date: isoLocal(new Date(y + 1, 0, 1)), time: "00:00", tz: localZone(),
+      dir: "down", style: "digits", accent: "#FF7A45", bg: "plain",
+      units: { days: true, hours: true, minutes: true, seconds: true },
+      progress: true, celebrate: false, keep: true, ref: Date.now()
+    };
+  }
+
+  /* ---------- boot ---------- */
+  buildTZ(); buildAccents(); bindForm(); bindActions();
+  renderPresets(); renderLib(); syncForm(); apply();
+  initReveal();
+  mountCd($("#heroCd"), heroCfg());
+  routeFromHash();
+})();
+</script>
+</body>
+</html>
