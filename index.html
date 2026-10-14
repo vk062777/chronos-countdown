@@ -19,6 +19,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="color-scheme" content="dark light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="speculationrules">{"prerender":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}</script>
 <style>
 /* ============================================================
    Chronos — design tokens
@@ -544,7 +548,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
    Toast + confetti
    ============================================================ */
 #toast {
-  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 140%);
+  position: fixed; left: 50%; bottom: 26px;  transform: translate(-50%, 150px);
   background: var(--ink); color: var(--bg); padding: .7rem 1.1rem; border-radius: 100px;
   font-size: var(--text-sm); z-index: 300; box-shadow: var(--shadow-md);
   transition: transform .4s var(--ease-out-soft); display: flex; align-items: center; gap: .5rem; max-width: 92vw;
@@ -564,6 +568,81 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
   [data-reveal] { opacity: 1; transform: none; }
 }
 
+/* ============================================================
+   v2 — GPU motion layer, machinery, QR, ring, scrubber
+   ============================================================ */
+html { background: var(--bg); }
+body { background: transparent; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; opacity: 0; transition: opacity 1s var(--ease-out-soft); pointer-events: none; }
+:root[data-fx="subtle"] #fx { opacity: .34; }
+:root[data-fx="vivid"]  #fx { opacity: .92; }
+:root[data-fx="off"]    #fx { opacity: 0; }
+#fxScrim { position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(130% 90% at 50% -5%, transparent 0%, color-mix(in srgb, var(--bg) 62%, transparent) 62%, var(--bg) 100%); }
+:root[data-fx="off"] #fxScrim { display: none; }
+
+@property --ring { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+/* capability / machinery */
+.cap-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-3); }
+@media (min-width: 640px) { .cap-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (min-width: 1040px) { .cap-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+.cap { display: flex; align-items: flex-start; gap: .7rem; padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); transition: border-color .25s, transform .25s var(--ease-out-soft); }
+.cap:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+.cap .dotmark { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: .45rem; background: var(--line-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--line-strong) 25%, transparent); }
+.cap.on .dotmark { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent); }
+.cap.used .dotmark { background: #6FE3C4; box-shadow: 0 0 0 3px rgba(111,227,196,.24); }
+.cap .cap-body { min-width: 0; }
+.cap .cap-name { font-size: var(--text-sm); font-weight: 500; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cap .cap-desc { font-size: var(--text-xs); color: var(--ink-soft); margin-top: .15rem; }
+.cap .tag { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 100px; padding: .05rem .45rem; color: var(--ink-soft); }
+.cap.used .tag { color: #6FE3C4; border-color: color-mix(in srgb, #6FE3C4 45%, transparent); }
+.meter { display: flex; flex-wrap: wrap; gap: var(--s-4); }
+.meter .m { flex: 1 1 150px; padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.meter .m .mv { font-family: var(--font-display); font-size: var(--text-2xl); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--accent); line-height: 1; }
+.meter .m .ml { font-size: var(--text-xs); color: var(--ink-soft); letter-spacing: .06em; text-transform: uppercase; margin-top: .5rem; }
+
+/* QR dialog */
+dialog.qr { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: var(--radius-lg); padding: var(--s-6); max-width: min(420px, 92vw); box-shadow: var(--shadow-lg); }
+dialog.qr::backdrop { background: rgba(4,5,8,.62); backdrop-filter: blur(4px); }
+dialog.qr h3 { font-size: var(--text-xl); margin-bottom: .35rem; }
+dialog.qr p { font-size: var(--text-sm); color: var(--ink-soft); }
+.qr-stage { display: grid; place-items: center; margin: var(--s-5) 0; }
+.qr-stage canvas { width: min(280px, 70vw); height: auto; border-radius: 12px; background: #fff; padding: 12px; image-rendering: pixelated; }
+.qr-link { font-family: var(--font-mono); font-size: .72rem; color: var(--ink-soft); word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .6rem .7rem; max-height: 84px; overflow: auto; }
+.qr-actions { display: flex; gap: .5rem; margin-top: var(--s-5); flex-wrap: wrap; }
+
+/* ring */
+.cd-ring { flex: none; width: 62px; height: 62px; border-radius: 50%; position: relative;
+  background: conic-gradient(var(--accent) var(--ring, 0deg), var(--surface-2) 0);
+  transition: --ring .9s linear; display: grid; place-items: center; }
+.cd-ring::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--surface); }
+.cd-ring b { position: relative; font-size: .72rem; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-weight: 500; }
+
+/* scrubber */
+.scrub { display: flex; align-items: center; gap: var(--s-4); }
+.scrub input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 6px; border-radius: 100px; background: var(--surface-2); border: 1px solid var(--line); }
+.scrub input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); box-shadow: var(--shadow-sm); cursor: pointer; }
+.scrub input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); cursor: pointer; }
+.scrub output { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-soft); min-width: 5.5rem; text-align: right; }
+
+/* status pill */
+.status-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.status-pill { display: inline-flex; align-items: center; gap: .45rem; font-size: var(--text-xs); border: 1px solid var(--line); border-radius: 100px; padding: .3rem .7rem; color: var(--ink-soft); background: var(--surface); }
+.status-pill .live { width: 7px; height: 7px; border-radius: 50%; background: #6FE3C4; box-shadow: 0 0 0 3px rgba(111,227,196,.2); }
+.status-pill.off .live { background: var(--line-strong); box-shadow: none; }
+
+/* scroll-driven progress bar (progressive enhancement) */
+.scrollbar-progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 120; transform-origin: 0 50%; background: var(--accent); transform: scaleX(0); }
+@supports (animation-timeline: scroll()) {
+  .scrollbar-progress { animation: grow-x linear; animation-timeline: scroll(root block); }
+}
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* container query: countdown unit adapts to its own width */
+.cd { container-type: inline-size; }
+@container (max-width: 300px) { .cd-num { font-size: clamp(1.4rem, 12cqw, 2.2rem); } .cd-head { flex-direction: column; } }
+
 /* mobile nav */
 @media (max-width: 720px) {
   .nav {
@@ -581,6 +660,9 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+<div class="scrollbar-progress" aria-hidden="true"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div id="fxScrim" aria-hidden="true"></div>
 
 <header class="site-header">
   <div class="container hd-inner">
@@ -591,6 +673,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     <nav class="nav" id="nav" aria-label="Primary">
       <a href="#create" data-nav="create">Create</a>
       <a href="#library" data-nav="library">Library</a>
+      <a href="#lab" data-nav="lab">Lab</a>
       <a href="#guide" data-nav="guide">Guide</a>
     </nav>
     <div class="hd-actions">
@@ -869,6 +952,39 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
             <label class="switch"><input type="checkbox" id="f-keep" checked><span class="track"></span><span class="knob"></span></label>
           </div>
         </div>
+
+        <div class="panel">
+          <div class="panel-title">Motion, sound &amp; signals</div>
+          <div class="field">
+            <span class="flabel">GPU motion background</span>
+            <div class="seg" id="f-fx" role="group" aria-label="Motion background">
+              <button type="button" data-val="off" aria-pressed="false">Off</button>
+              <button type="button" data-val="subtle" aria-pressed="true">Subtle</button>
+              <button type="button" data-val="vivid" aria-pressed="false">Vivid</button>
+            </div>
+            <p class="hint">A WebGL fragment shader, tinted live to your accent colour.</p>
+          </div>
+          <div class="field">
+            <span class="flabel">Time warp</span>
+            <div class="scrub">
+              <input type="range" id="f-warp" min="0" max="100" value="0" aria-label="Scrub the countdown through time">
+              <output id="f-warp-out">live</output>
+            </div>
+            <p class="hint">Drag to preview any moment — before, at, or long after zero.</p>
+          </div>
+          <div class="toggle-row">
+            <span>Ring progress</span>
+            <label class="switch"><input type="checkbox" id="f-ring"><span class="track"></span><span class="knob"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Sonify the wait</span>
+            <label class="switch"><input type="checkbox" id="f-sonify"><span class="track"></span><span class="knob"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Announce &amp; notify at zero</span>
+            <label class="switch"><input type="checkbox" id="f-notify"><span class="track"></span><span class="knob"></span></label>
+          </div>
+        </div>
       </div>
 
       <div class="preview-wrap">
@@ -893,6 +1009,14 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
           <button class="btn btn-ghost" id="act-embed">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6"/></svg>
             Embed
+          </button>
+          <button class="btn btn-ghost" id="act-qr">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg>
+            QR code
+          </button>
+          <button class="btn btn-ghost" id="act-poster">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>
+            Poster
           </button>
           <button class="btn btn-quiet" id="act-reset">Reset</button>
         </div>
@@ -958,6 +1082,38 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     </div>
   </section>
 
+  <!-- ========================= LAB ========================= -->
+  <section id="lab" class="view" data-title="Lab — Chronos">
+    <div class="container page-head">
+      <span class="eyebrow">Under the hood</span>
+      <h1>The machinery.</h1>
+      <p class="lead">Chronos is one HTML file running on roughly forty browser APIs — no framework, no build step, no server. This page probes every one of them live. A green dot means it is active in this tab right now.</p>
+    </div>
+    <div class="container">
+      <div class="meter" id="labMeter"></div>
+      <div class="section-head" style="margin-top:var(--s-8)">
+        <span class="eyebrow">Capabilities</span>
+        <h2>Probed live, on this device.</h2>
+        <p class="lead">Nothing here is a claim — every line is a real feature test run in your browser just now.</p>
+      </div>
+      <div class="cap-grid" id="capGrid"></div>
+      <div class="section-head" style="margin-top:var(--s-8)">
+        <span class="eyebrow">For developers</span>
+        <h2>Drop it in as a web component.</h2>
+        <p class="lead">Chronos registers a custom element backed by a shadow root. Paste the snippet into any page and it just works — no build step, no dependencies, no CSS collisions.</p>
+      </div>
+      <div class="panel">
+        <pre id="wcSnippet" style="margin:0;font-family:var(--font-mono);font-size:.8rem;color:var(--ink-soft);white-space:pre-wrap;word-break:break-word"></pre>
+        <div class="preview-actions">
+          <button class="btn btn-ghost" id="act-copywc">Copy component snippet</button>
+        </div>
+        <div style="margin-top:var(--s-6)">
+          <chronos-countdown id="wcDemo" title="Live element demo" date="2027-01-01" time="00:00"></chronos-countdown>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ========================= SHARED ========================= -->
   <section id="shared" class="view" data-title="Countdown — Chronos">
     <div class="stage" id="stage">
@@ -1000,6 +1156,17 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     <span>Your countdowns stay on your device. No accounts, no tracking.</span>
   </div>
 </footer>
+
+<dialog class="qr" id="qrDlg" aria-labelledby="qrTitle">
+  <h3 id="qrTitle">Scan to open</h3>
+  <p>Point a phone camera at this code — it opens the exact same countdown.</p>
+  <div class="qr-stage"><canvas id="qrCanvas" width="300" height="300" aria-label="QR code for the share link"></canvas></div>
+  <div class="qr-link" id="qrLink"></div>
+  <div class="qr-actions">
+    <button class="btn btn-primary" id="qrCopy">Copy link</button>
+    <button class="btn btn-ghost" id="qrClose">Close</button>
+  </div>
+</dialog>
 
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1115,7 +1282,41 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     var bin = atob(str), bytes = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
     return new TextDecoder().decode(bytes);
   }
-  function shareUrl(c) { return location.origin + location.pathname + "#c=" + b64u(JSON.stringify(c)); }
+  function shareUrl(c) { return location.origin + location.pathname + "#c=0." + b64u(JSON.stringify(c)); }
+  var fxMode = localStorage.getItem("chronos-fx") || "subtle";
+  function b64uBytes(bytes) { var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function bytesFromB64u(str) { str = str.replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "="; var bin = atob(str), arr = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return arr; }
+  async function makeLink(c) {
+    var json = JSON.stringify(c), bytes = new TextEncoder().encode(json);
+    if (typeof CompressionStream !== "undefined") {
+      try {
+        var cs = new CompressionStream("deflate-raw");
+        var w = cs.writable.getWriter(); w.write(bytes); w.close();
+        var buf = await new Response(cs.readable).arrayBuffer();
+        var packed = "1." + b64uBytes(new Uint8Array(buf));
+        if (packed.length < ("0." + b64u(json)).length) return location.origin + location.pathname + "#c=" + packed;
+      } catch (e) {}
+    }
+    return location.origin + location.pathname + "#c=0." + b64u(json);
+  }
+  async function unpackState(str) {
+    var tag = str.slice(0, 2), body = str.slice(2), bytes = bytesFromB64u(body);
+    if (tag === "1." && typeof DecompressionStream !== "undefined") {
+      var ds = new DecompressionStream("deflate-raw");
+      var w = ds.writable.getWriter(); w.write(bytes); w.close();
+      var buf = await new Response(ds.readable).arrayBuffer();
+      return new TextDecoder().decode(new Uint8Array(buf));
+    }
+    return new TextDecoder().decode(bytes);
+  }
+  function skyText(c, target) {
+    try {
+      var s = skyPhase(target, c.tz);
+      if (!s.sunrise) return "";
+      var fmt = function (ts) { return new Intl.DateTimeFormat("en-GB", { timeZone: c.tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ts)); };
+      return "Sky at the moment · " + s.city + " · " + s.phase + " · sunrise " + fmt(s.sunrise) + ", sunset " + fmt(s.sunset);
+    } catch (e) { return ""; }
+  }
 
   /* ---------- countdown engine ---------- */
   function computeTarget(c) {
@@ -1141,7 +1342,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     var n = order.length;
     var showProgress = c.progress && c.dir === "down";
     var h = '<div class="cd" data-style="' + c.style + '" style="--accent:' + c.accent + ";--accent-soft:" + hexSoft(c.accent) + '">';
-    h += '<div class="cd-head"><div><div class="cd-title">' + esc(c.title || "Untitled countdown") + "</div>" + (c.sub ? '<div class="cd-sub">' + esc(c.sub) + "</div>" : "") + '</div><span class="cd-tag">To go</span></div>';
+    h += '<div class="cd-head"><div><div class="cd-title">' + esc(c.title || "Untitled countdown") + "</div>" + (c.sub ? '<div class="cd-sub">' + esc(c.sub) + "</div>" : "") + '</div><div style="display:flex;align-items:center;gap:.6rem">' + (c.ring ? '<span class="cd-ring"><b>0%</b></span>' : "") + '<span class="cd-tag">To go</span></div></div>';
     h += '<div class="cd-grid" style="grid-template-columns:repeat(' + n + ',minmax(0,1fr))">';
     order.forEach(function (o) { h += '<div class="cd-unit"><span class="cd-num" data-k="' + o[0] + '">0</span><span class="cd-lbl">' + o[1] + "</span></div>"; });
     h += "</div>";
@@ -1150,6 +1351,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     } else {
       h += '<div class="cd-foot"><span class="cd-foot-when"></span><span>' + esc(c.tz) + "</span></div>";
     }
+    h += '<div class="cd-sky" style="margin-top:var(--s-4);font-size:var(--text-xs);color:var(--ink-soft)"></div>';
     h += '<div class="cd-done-note">The moment has arrived.</div>';
     h += "</div>";
     el.innerHTML = h;
@@ -1172,16 +1374,23 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     });
     var tag = el.querySelector(".cd-tag"); if (tag) tag.textContent = past ? (c.dir === "down" ? "Arrived" : "Elapsed") : "To go";
     var when = el.querySelector(".cd-foot-when"); if (when) when.textContent = (past ? "Since " : "Until ") + fmtInZone(target, c.tz);
+    var ref = c.ref || 0, total = target - ref, p = total > 0 ? Math.max(0, Math.min(1, (now - ref) / total)) : 0;
     var bar = el.querySelector(".cd-progress-bar > span"), meta = el.querySelector(".cd-progress-meta");
     if (bar) {
-      var ref = c.ref || 0, total = target - ref, p = total > 0 ? Math.max(0, Math.min(1, (now - ref) / total)) : 0;
       bar.style.width = (p * 100).toFixed(1) + "%";
       if (meta && meta.children[0]) meta.children[0].textContent = Math.round(p * 100) + "% elapsed";
       if (meta && meta.children[1]) meta.children[1].textContent = (past ? "since " : "until ") + fmtInZone(target, c.tz);
     }
+    var ring = el.querySelector(".cd-ring");
+    if (ring) { ring.style.setProperty("--ring", (p * 360).toFixed(1) + "deg"); var rb = ring.querySelector("b"); if (rb) rb.textContent = Math.round(p * 100) + "%"; }
+    var sky = el.querySelector(".cd-sky"); if (sky) sky.textContent = skyText(c, target);
     var cd = el.querySelector(".cd"); if (cd) cd.classList.toggle("done", past);
     if (el._first) { el._first = false; el._celebrated = past; return; }
-    if (past && !el._celebrated) { el._celebrated = true; if (c.celebrate) celebrate(c.accent); }
+    if (past && !el._celebrated) {
+      el._celebrated = true;
+      if (c.celebrate) celebrate(c.accent);
+      if (c.notify) { chime(); speak((c.title || "Your countdown") + " has arrived"); haptic([40, 60, 40]); fireNotify(c.title || "Countdown", "The moment has arrived."); }
+    }
     if (!past) el._celebrated = false;
   }
 
@@ -1191,6 +1400,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
   window.addEventListener("resize", resizeCvs);
   function celebrate(accent) {
     if (reduceMotion) return;
+    if (workerOffscreen) { if (fxWorker && workerReady) { cvs.style.display = "block"; fxWorker.postMessage({ type: "burst", accent: accent }); } return; }
     resizeCvs(); cvs.style.display = "block";
     var cols = [accent || "#FF7A45", "#ECEDF2", "#E8B84B", "#6FE3C4", "#7AA2FF", "#FF6FA5"];
     for (var i = 0; i < 150; i++) {
@@ -1218,7 +1428,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
   /* ---------- global tick ---------- */
   var live = [];
   function mountCd(el, c) { var e = { el: el, cfg: c }; live.push(e); buildCd(el, c); return e; }
-  setInterval(function () { var now = Date.now(); live.forEach(function (e) { if (document.body.contains(e.el)) updateCd(e.el, now); }); }, 1000);
+  mainTick = setInterval(function () { tickAll(Date.now()); }, 1000);
 
   /* ---------- router ---------- */
   var routing = false;
@@ -1232,6 +1442,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     });
     document.title = next.dataset.title || document.title;
     document.body.classList.toggle("immersive", next.id === "shared");
+    var dlg = $("#qrDlg"); if (dlg && dlg.open && dlg.close) dlg.close();
     initReveal(next);
   }
   function go(id) {
@@ -1265,10 +1476,10 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     mountCd($("#sharedCd"), merged);
     go("shared");
   }
-  function routeFromHash() {
+  async function routeFromHash() {
     var h = location.hash.slice(1);
     if (h.indexOf("c=") === 0) {
-      try { openShared(JSON.parse(unb64u(h.slice(2)))); }
+      try { openShared(JSON.parse(await unpackState(h.slice(2)))); }
       catch (e) { showToast("That countdown link looks broken"); navigateTo("home"); }
       return;
     }
@@ -1310,6 +1521,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
       b.addEventListener("click", function () {
         cfg.accent = hex;
         $$("#f-accent .swatch").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        setFXAccent(hex);
         apply();
       });
       wrap.appendChild(b);
@@ -1329,8 +1541,14 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     $("#f-progress").checked = !!cfg.progress;
     $("#f-celebrate").checked = !!cfg.celebrate;
     $("#f-keep").checked = !!cfg.keep;
+    var ringEl = $("#f-ring"); if (ringEl) ringEl.checked = !!cfg.ring;
+    var son = $("#f-sonify"); if (son) son.checked = !!cfg.sonify;
+    var noti = $("#f-notify"); if (noti) noti.checked = !!cfg.notify;
+    $$("#f-fx button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.val === fxMode)); });
+    var warp = $("#f-warp"); if (warp) warp.value = "0";
+    var out = $("#f-warp-out"); if (out) out.textContent = "live";
   }
-  function apply() { buildCd($("#builderCd"), cfg); }
+  function apply() { var el = $("#builderCd"); el._warped = true; buildCd(el, cfg); }
 
   function bindForm() {
     $("#f-title").addEventListener("input", function () { cfg.title = this.value; apply(); });
@@ -1357,6 +1575,23 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     $("#f-progress").addEventListener("change", function () { cfg.progress = this.checked; apply(); });
     $("#f-celebrate").addEventListener("change", function () { cfg.celebrate = this.checked; });
     $("#f-keep").addEventListener("change", function () { cfg.keep = this.checked; });
+    $$("#f-fx button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        fxMode = b.dataset.val;
+        localStorage.setItem("chronos-fx", fxMode);
+        document.documentElement.dataset.fx = fxMode;
+        $$("#f-fx button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      });
+    });
+    var warp = $("#f-warp");
+    if (warp) warp.addEventListener("input", function () {
+      warpPct = +this.value;
+      var out = $("#f-warp-out"); if (out) out.textContent = warpLabel(cfg, Date.now());
+      apply();
+    });
+    var ringEl = $("#f-ring"); if (ringEl) ringEl.addEventListener("change", function () { cfg.ring = this.checked; apply(); });
+    var son = $("#f-sonify"); if (son) son.addEventListener("change", function () { cfg.sonify = this.checked; audioToggle(this.checked); renderLab(); });
+    var noti = $("#f-notify"); if (noti) noti.addEventListener("change", function () { cfg.notify = this.checked; if (this.checked) askNotify(); });
   }
 
   /* ---------- clipboard + files ---------- */
@@ -1389,8 +1624,8 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     showToast("Calendar file downloaded");
   }
-  function embedSnippet(c) {
-    return '<iframe src="' + shareUrl(c) + '" title="' + (c.title || "Countdown").replace(/"/g, "") + '" width="100%" height="360" style="border:0;border-radius:14px" loading="lazy"></iframe>';
+  function embedFor(url, title) {
+    return '<iframe src="' + url + '" title="' + (title || "Countdown").replace(/"/g, "") + '" width="100%" height="360" style="border:0;border-radius:14px" loading="lazy"></iframe>';
   }
 
   /* ---------- library ---------- */
@@ -1412,7 +1647,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
       editingId = item.id;
       showToast("Saved to your library");
     }
-    setLib(lib); renderLib();
+    setLib(lib); renderLib(); broadcastLib();
   }
   function renderLib() {
     var lib = getLib(), body = $("#libBody");
@@ -1460,10 +1695,10 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
       cfg.units = Object.assign({ days: true, hours: true, minutes: true, seconds: true }, item.units || {});
       editingId = id; syncForm(); apply(); navigateTo("create");
       showToast("Editing \u201C" + (item.title || "countdown") + "\u201D");
-    } else if (act === "copy") copy(shareUrl(item), "Link copied");
+    } else if (act === "copy") makeLink(item).then(function (u) { copy(u, "Link copied"); });
     else if (act === "del") {
       setLib(lib.filter(function (x) { return x.id !== id; }));
-      renderLib(); showToast("Deleted");
+      renderLib(); broadcastLib(); showToast("Deleted");
     }
   });
 
@@ -1500,22 +1735,32 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
   /* ---------- actions ---------- */
   function bindActions() {
     $("#act-save").addEventListener("click", saveCfg);
-    $("#act-share").addEventListener("click", function () { copy(shareUrl(cfg), "Share link copied"); });
+    $("#act-share").addEventListener("click", function () {
+      makeLink(cfg).then(function (u) {
+        if (navigator.share) nativeShare(u, cfg.title); else copy(u, "Share link copied");
+      });
+    });
     $("#act-open").addEventListener("click", function () {
       openShared(cfg);
       setTimeout(function () { var st = $("#stage"); if (st.requestFullscreen) st.requestFullscreen().catch(function () {}); }, 320);
     });
     $("#act-ics").addEventListener("click", function () { downloadICS(cfg); });
-    $("#act-embed").addEventListener("click", function () { copy(embedSnippet(cfg), "Embed code copied"); });
+    $("#act-embed").addEventListener("click", function () { makeLink(cfg).then(function (u) { copy(embedFor(u, cfg.title), "Embed code copied"); }); });
     $("#act-reset").addEventListener("click", function () {
       cfg = Object.assign({}, DEFAULT_CFG);
       cfg.date = isoLocal(new Date(Date.now() + 30 * 86400000));
       cfg.time = "18:00"; cfg.tz = localZone(); cfg.ref = Date.now();
       editingId = null; syncForm(); apply(); showToast("Reset");
     });
+    var qrBtn = $("#act-qr"); if (qrBtn) qrBtn.addEventListener("click", function () { showQR(cfg); });
+    var posterBtn = $("#act-poster"); if (posterBtn) posterBtn.addEventListener("click", function () { exportPoster(cfg); });
+    var qrCopyBtn = $("#qrCopy"); if (qrCopyBtn) qrCopyBtn.addEventListener("click", function () { copy(qrCurrentUrl, "Link copied"); });
+    var qrCloseBtn = $("#qrClose"); if (qrCloseBtn) qrCloseBtn.addEventListener("click", function () { var d = $("#qrDlg"); if (d && d.close) d.close(); });
+    var qrDlgEl = $("#qrDlg"); if (qrDlgEl) qrDlgEl.addEventListener("click", function (e) { if (e.target === qrDlgEl && qrDlgEl.close) qrDlgEl.close(); });
+    var cwc = $("#act-copywc"); if (cwc) cwc.addEventListener("click", function () { copy($("#wcSnippet").textContent, "Component snippet copied"); });
     $("#shared-full").addEventListener("click", function () {
       var st = $("#stage");
-      if (!document.fullscreenElement) { if (st.requestFullscreen) st.requestFullscreen().catch(function () {}); }
+      if (!document.fullscreenElement) { requestWake(); if (st.requestFullscreen) st.requestFullscreen().catch(function () {}); }
       else if (document.exitFullscreen) document.exitFullscreen();
     });
   }
@@ -1524,7 +1769,7 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
   document.addEventListener("keydown", function (e) {
     var tag = (e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "select" || tag === "textarea") return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); copy(shareUrl(cfg), "Share link copied"); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); makeLink(cfg).then(function (u) { copy(u, "Share link copied"); }); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "c") navigateTo("create");
     else if (e.key === "l") navigateTo("library");
@@ -1543,11 +1788,747 @@ section.block { padding-block: clamp(3.5rem, 8vw, 7rem); }
     };
   }
 
+  /* ============================================================
+     v2 core — pure-JS QR encoder (byte mode, versions 1–15)
+     ============================================================ */
+  var GF_EXP = new Uint8Array(512), GF_LOG = new Uint8Array(256);
+  (function () { var x = 1; for (var i = 0; i < 255; i++) { GF_EXP[i] = x; GF_LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; } for (var j = 255; j < 512; j++) GF_EXP[j] = GF_EXP[j - 255]; })();
+  function gfMul(a, b) { return (a === 0 || b === 0) ? 0 : GF_EXP[GF_LOG[a] + GF_LOG[b]]; }
+  function rsGenPoly(n) {
+    var poly = [1];
+    for (var i = 0; i < n; i++) {
+      var np = new Array(poly.length + 1).fill(0);
+      for (var j = 0; j < poly.length; j++) { np[j] ^= poly[j]; np[j + 1] ^= gfMul(poly[j], GF_EXP[i]); }
+      poly = np;
+    }
+    return poly;
+  }
+  function rsEncode(data, ecLen) {
+    var gen = rsGenPoly(ecLen), res = new Uint8Array(data.length + ecLen);
+    res.set(data, 0);
+    for (var i = 0; i < data.length; i++) {
+      var coef = res[i];
+      if (coef !== 0) for (var j = 0; j < gen.length; j++) res[i + j] ^= gfMul(gen[j], coef);
+    }
+    return res.slice(data.length);
+  }
+  var QR_TABLE = {
+    1:  { L: [7,  [[1, 19]]], M: [10, [[1, 16]]], Q: [13, [[1, 13]]], H: [17, [[1, 9]]] },
+    2:  { L: [10, [[1, 34]]], M: [16, [[1, 28]]], Q: [22, [[1, 22]]], H: [28, [[1, 16]]] },
+    3:  { L: [15, [[1, 55]]], M: [26, [[1, 44]]], Q: [18, [[2, 17]]], H: [22, [[2, 13]]] },
+    4:  { L: [20, [[1, 80]]], M: [18, [[2, 32]]], Q: [26, [[2, 24]]], H: [16, [[4, 9]]] },
+    5:  { L: [26, [[1, 108]]], M: [24, [[2, 43]]], Q: [18, [[2, 15], [2, 16]]], H: [22, [[2, 11], [2, 12]]] },
+    6:  { L: [18, [[2, 68]]], M: [16, [[4, 27]]], Q: [24, [[4, 19]]], H: [28, [[4, 15]]] },
+    7:  { L: [20, [[2, 78]]], M: [18, [[4, 31]]], Q: [18, [[2, 14], [4, 15]]], H: [26, [[4, 13], [1, 14]]] },
+    8:  { L: [24, [[2, 97]]], M: [22, [[2, 38], [2, 39]]], Q: [22, [[4, 18], [2, 19]]], H: [26, [[4, 14], [2, 15]]] },
+    9:  { L: [30, [[2, 116]]], M: [22, [[3, 36], [2, 37]]], Q: [20, [[4, 16], [4, 17]]], H: [24, [[4, 12], [4, 13]]] },
+    10: { L: [18, [[2, 68], [2, 69]]], M: [26, [[4, 43], [1, 44]]], Q: [24, [[6, 19], [2, 20]]], H: [28, [[6, 15], [2, 16]]] },
+    11: { L: [20, [[4, 81]]], M: [30, [[1, 50], [4, 51]]], Q: [28, [[4, 22], [4, 23]]], H: [24, [[3, 12], [8, 13]]] },
+    12: { L: [24, [[2, 92], [2, 93]]], M: [22, [[6, 36], [2, 37]]], Q: [26, [[4, 20], [6, 21]]], H: [28, [[7, 14], [4, 15]]] },
+    13: { L: [26, [[4, 107]]], M: [22, [[8, 37], [1, 38]]], Q: [24, [[8, 20], [4, 21]]], H: [22, [[12, 11], [4, 12]]] },
+    14: { L: [30, [[3, 115], [1, 116]]], M: [24, [[4, 40], [5, 41]]], Q: [20, [[11, 16], [5, 17]]], H: [24, [[11, 12], [5, 13]]] },
+    15: { L: [22, [[5, 87], [1, 88]]], M: [24, [[5, 41], [5, 42]]], Q: [30, [[5, 24], [7, 25]]], H: [24, [[11, 12], [7, 13]]] }
+  };
+  var QR_ALIGN = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50], 11: [6, 30, 54], 12: [6, 32, 58], 13: [6, 34, 62], 14: [6, 26, 46, 66], 15: [6, 26, 48, 70] };
+  function qrEncode(text, level) {
+    level = level || "M";
+    var data = new TextEncoder().encode(text), version = 0, spec = null;
+    for (var v = 1; v <= 15; v++) {
+      var s = QR_TABLE[v][level];
+      var cap = s[1].reduce(function (a, b) { return a + b[0] * b[1]; }, 0);
+      if (4 + (v < 10 ? 8 : 16) + data.length * 8 <= cap * 8) { version = v; spec = s; break; }
+    }
+    if (!version) return null;
+    var bits = [];
+    function put(val, len) { for (var i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); }
+    put(4, 4); put(data.length, version < 10 ? 8 : 16);
+    for (var i = 0; i < data.length; i++) put(data[i], 8);
+    var totalData = spec[1].reduce(function (a, b) { return a + b[0] * b[1]; }, 0), capBits = totalData * 8;
+    for (var t = 0; t < 4 && bits.length < capBits; t++) bits.push(0);
+    while (bits.length % 8 !== 0) bits.push(0);
+    var cw = [];
+    for (var b = 0; b < bits.length; b += 8) { var by = 0; for (var k = 0; k < 8; k++) by = (by << 1) | bits[b + k]; cw.push(by); }
+    var pads = [0xEC, 0x11], pi = 0;
+    while (cw.length < totalData) cw.push(pads[pi++ % 2]);
+    var ecPer = spec[0], blocks = [], idx = 0;
+    spec[1].forEach(function (grp) {
+      for (var n = 0; n < grp[0]; n++) { var d = cw.slice(idx, idx + grp[1]); idx += grp[1]; blocks.push({ data: d, ec: Array.prototype.slice.call(rsEncode(Uint8Array.from(d), ecPer)) }); }
+    });
+    var maxD = 0; blocks.forEach(function (bl) { maxD = Math.max(maxD, bl.data.length); });
+    var out = [];
+    for (var c1 = 0; c1 < maxD; c1++) for (var i1 = 0; i1 < blocks.length; i1++) if (c1 < blocks[i1].data.length) out.push(blocks[i1].data[c1]);
+    for (var c2 = 0; c2 < ecPer; c2++) for (var i2 = 0; i2 < blocks.length; i2++) out.push(blocks[i2].ec[c2]);
+    return { version: version, level: level, codewords: out };
+  }
+  function qrMatrix(version, level, codewords) {
+    var size = version * 4 + 17, m = [], res = [];
+    for (var i = 0; i < size; i++) { m.push(new Array(size).fill(0)); res.push(new Array(size).fill(false)); }
+    function setF(r, c, v) { if (r >= 0 && r < size && c >= 0 && c < size) { m[r][c] = v; res[r][c] = true; } }
+    function finder(r, c) {
+      for (var dr = -1; dr <= 7; dr++) for (var dc = -1; dc <= 7; dc++) {
+        var rr = r + dr, cc = c + dc; if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+        var ring = (dr >= 0 && dr <= 6 && (dc === 0 || dc === 6)) || (dc >= 0 && dc <= 6 && (dr === 0 || dr === 6));
+        var core = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+        setF(rr, cc, (ring || core) ? 1 : 0);
+      }
+    }
+    finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+    for (var t = 8; t < size - 8; t++) { setF(6, t, t % 2 === 0 ? 1 : 0); setF(t, 6, t % 2 === 0 ? 1 : 0); }
+    var al = QR_ALIGN[version];
+    for (var a = 0; a < al.length; a++) for (var b = 0; b < al.length; b++) {
+      var ar = al[a], ac = al[b];
+      if ((ar === 6 && ac === 6) || (ar === 6 && ac === size - 7) || (ar === size - 7 && ac === 6)) continue;
+      for (var dr2 = -2; dr2 <= 2; dr2++) for (var dc2 = -2; dc2 <= 2; dc2++) {
+        var rg = Math.max(Math.abs(dr2), Math.abs(dc2));
+        setF(ar + dr2, ac + dc2, (rg === 2 || rg === 0) ? 1 : 0);
+      }
+    }
+    setF(size - 8, 8, 1);
+    for (var f1 = 0; f1 < 9; f1++) { if (f1 !== 6) { res[8][f1] = true; res[f1][8] = true; } }
+    for (var f2 = 0; f2 < 8; f2++) { res[8][size - 1 - f2] = true; res[size - 1 - f2][8] = true; }
+    res[size - 8][8] = true;
+    if (version >= 7) {
+      var vbits = versionInfo(version);
+      for (var i3 = 0; i3 < 18; i3++) {
+        var bit = (vbits >> i3) & 1, r3 = Math.floor(i3 / 3), c3 = i3 % 3;
+        m[size - 11 + c3][r3] = bit; res[size - 11 + c3][r3] = true;
+        m[r3][size - 11 + c3] = bit; res[r3][size - 11 + c3] = true;
+      }
+    }
+    var stream = [];
+    codewords.forEach(function (w) { for (var b2 = 7; b2 >= 0; b2--) stream.push((w >> b2) & 1); });
+    var si = 0, up = true;
+    for (var col = size - 1; col > 0; col -= 2) {
+      if (col === 6) col = 5;
+      for (var k2 = 0; k2 < size; k2++) {
+        var row = up ? size - 1 - k2 : k2;
+        for (var cc2 = 0; cc2 < 2; cc2++) {
+          var c4 = col - cc2;
+          if (res[row][c4]) continue;
+          m[row][c4] = si < stream.length ? stream[si++] : 0;
+        }
+      }
+      up = !up;
+    }
+    return { size: size, m: m, res: res };
+  }
+  function maskFn(id, r, c) {
+    switch (id) {
+      case 0: return (r + c) % 2 === 0;
+      case 1: return r % 2 === 0;
+      case 2: return c % 3 === 0;
+      case 3: return (r + c) % 3 === 0;
+      case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+      case 5: return ((r * c) % 2) + ((r * c) % 3) === 0;
+      case 6: return (((r * c) % 2) + ((r * c) % 3)) % 2 === 0;
+      default: return (((r + c) % 2) + ((r * c) % 3)) % 2 === 0;
+    }
+  }
+  function applyMask(mtx, id) {
+    var size = mtx.size, out = mtx.m.map(function (row) { return row.slice(); });
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) if (!mtx.res[r][c] && maskFn(id, r, c)) out[r][c] ^= 1;
+    return out;
+  }
+  function qrPenalty(m) {
+    var size = m.length, p = 0, r, c;
+    for (r = 0; r < size; r++) { var run = 1; for (c = 1; c < size; c++) { if (m[r][c] === m[r][c - 1]) run++; else { if (run >= 5) p += 3 + run - 5; run = 1; } } if (run >= 5) p += 3 + run - 5; }
+    for (c = 0; c < size; c++) { var run2 = 1; for (r = 1; r < size; r++) { if (m[r][c] === m[r - 1][c]) run2++; else { if (run2 >= 5) p += 3 + run2 - 5; run2 = 1; } } if (run2 >= 5) p += 3 + run2 - 5; }
+    for (r = 0; r < size - 1; r++) for (c = 0; c < size - 1; c++) { var v = m[r][c]; if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) p += 3; }
+    var pat1 = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], pat2 = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
+    function match(arr, i, pat) { for (var k = 0; k < 11; k++) if (arr[i + k] !== pat[k]) return false; return true; }
+    for (r = 0; r < size; r++) for (c = 0; c + 11 <= size; c++) if (match(m[r], c, pat1) || match(m[r], c, pat2)) p += 40;
+    for (c = 0; c < size; c++) { var col = []; for (r = 0; r < size; r++) col.push(m[r][c]); for (r = 0; r + 11 <= size; r++) if (match(col, r, pat1) || match(col, r, pat2)) p += 40; }
+    var dark = 0; for (r = 0; r < size; r++) for (c = 0; c < size; c++) dark += m[r][c];
+    p += Math.floor(Math.abs(dark * 100 / (size * size) - 50) / 5) * 10;
+    return p;
+  }
+  function versionInfo(v) { var rem = v; for (var i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >> 11) * 0x1F25); return (v << 12) | rem; }
+  function formatBits(level, mask) {
+    var lv = { L: 1, M: 0, Q: 3, H: 2 }[level], data = (lv << 3) | mask, rem = data;
+    for (var i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >> 9) * 0x537);
+    return ((data << 10) | rem) ^ 0x5412;
+  }
+  function placeFormat(m, level, mask) {
+    var size = m.length, bits = formatBits(level, mask);
+    for (var i = 0; i < 15; i++) {
+      var b1 = (bits >> i) & 1;
+      if (i < 6) m[i][8] = b1; else if (i < 8) m[i + 1][8] = b1; else m[size - 15 + i][8] = b1;
+    }
+    for (var j = 0; j < 15; j++) {
+      var b2 = (bits >> j) & 1;
+      if (j < 8) m[8][size - j - 1] = b2; else if (j < 9) m[8][15 - j - 1 + 1] = b2; else m[8][15 - j - 1] = b2;
+    }
+    m[size - 8][8] = 1;
+  }
+  function qrGenerate(text, level) {
+    var enc = qrEncode(text, level || "M");
+    if (!enc) return null;
+    var mtx = qrMatrix(enc.version, enc.level, enc.codewords), best = null, bestPen = Infinity, bestMask = 0;
+    for (var mk = 0; mk < 8; mk++) {
+      var cand = applyMask(mtx, mk); placeFormat(cand, enc.level, mk);
+      var pen = qrPenalty(cand);
+      if (pen < bestPen) { bestPen = pen; best = cand; bestMask = mk; }
+    }
+    return { size: best.length, modules: best, version: enc.version, level: enc.level, mask: bestMask };
+  }
+  function qrDraw(canvas, qr, opts) {
+    opts = opts || {};
+    var quiet = opts.quiet == null ? 4 : opts.quiet, size = qr.size, total = size + quiet * 2;
+    var scale = Math.max(1, Math.floor((opts.px || 300) / total)), px = total * scale;
+    canvas.width = px; canvas.height = px;
+    var x = canvas.getContext("2d");
+    x.fillStyle = opts.light || "#ffffff"; x.fillRect(0, 0, px, px);
+    x.fillStyle = opts.dark || "#0E0F13";
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) if (qr.modules[r][c]) x.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+    return { px: px, scale: scale, version: qr.version };
+  }
+
+  /* ============================================================
+     v2 — Web Worker + OffscreenCanvas (confetti + off-thread clock)
+     ============================================================ */
+  var WORKER_SRC = [
+    "var ctx=null,W=0,H=0,parts=[],raf=0,end=0;",
+    "self.onmessage=function(e){var d=e.data;",
+    " if(d.type==='init'){ctx=d.canvas.getContext('2d');W=d.w;H=d.h;self.postMessage({type:'ready'});}",
+    " else if(d.type==='resize'){W=d.w;H=d.h;}",
+    " else if(d.type==='burst'){spawn(d.accent);}",
+    "};",
+    "function spawn(a){var cols=[a||'#FF7A45','#ECEDF2','#E8B84B','#6FE3C4','#7AA2FF','#FF6FA5'];",
+    " for(var i=0;i<160;i++)parts.push({x:Math.random()*W,y:-20-Math.random()*H*0.5,vx:(Math.random()-0.5)*2.6,vy:1.6+Math.random()*3.4,sz:5+Math.random()*7,rot:Math.random()*6.28,vr:(Math.random()-0.5)*0.32,c:cols[(Math.random()*cols.length)|0]});",
+    " end=performance.now()+4200;if(!raf)raf=requestAnimationFrame(loop);}",
+    "function loop(){var now=performance.now();ctx.clearRect(0,0,W,H);",
+    " for(var i=0;i<parts.length;i++){var p=parts[i];p.vy+=0.05;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;",
+    "  ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.c;ctx.globalAlpha=now>end?Math.max(0,1-(now-end)/600):1;",
+    "  ctx.fillRect(-p.sz/2,-p.sz/2,p.sz,p.sz*0.62);ctx.restore();}",
+    " parts=parts.filter(function(p){return p.y<H+40&&now<end+700;});",
+    " if(now<end+700&&parts.length){raf=requestAnimationFrame(loop);}else{raf=0;parts=[];ctx.clearRect(0,0,W,H);self.postMessage({type:'done'});}}",
+    "setInterval(function(){self.postMessage({type:'tick',t:Date.now()});},1000);"
+  ].join("\n");
+  var fxWorker = null, workerReady = false, workerOffscreen = false, swReady = false;
+  function initWorker() {
+    if (typeof Worker === "undefined") return;
+    try {
+      var blob = new Blob([WORKER_SRC], { type: "application/javascript" });
+      fxWorker = new Worker(URL.createObjectURL(blob));
+      if (cvs.transferControlToOffscreen) {
+        var oc = cvs.transferControlToOffscreen();
+        fxWorker.postMessage({ type: "init", canvas: oc, w: window.innerWidth, h: window.innerHeight }, [oc]);
+        workerOffscreen = true;
+      }
+      fxWorker.onmessage = function (e) {
+        var d = e.data || {};
+        if (d.type === "ready") { workerReady = true; if (mainTick) clearInterval(mainTick); updateRuntime(); }
+        else if (d.type === "tick") { tickAll(Date.now()); }
+        else if (d.type === "done") { cvs.style.display = "none"; }
+      };
+      window.addEventListener("resize", function () { if (fxWorker) fxWorker.postMessage({ type: "resize", w: window.innerWidth, h: window.innerHeight }); });
+    } catch (e) { fxWorker = null; workerReady = false; }
+  }
+
+  /* ============================================================
+     v2 — WebGL2 fragment-shader background
+     ============================================================ */
+  var fx = { gl: null, ok: false, accent: [1, 0.478, 0.27], tint: [0.27, 1, 0.478], t0: performance.now(), raf: 0, paused: false };
+  var FX_VS = "#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+  var FX_FS = "#version 300 es\nprecision highp float;uniform vec2 u_res;uniform float u_t;uniform vec3 u_a;uniform vec3 u_b;out vec4 o;"
+    + "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}"
+    + "float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}"
+    + "float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p*=2.03;a*=.5;}return v;}"
+    + "void main(){vec2 uv=(gl_FragCoord.xy-.5*u_res)/u_res.y;float t=u_t*.05;vec2 q=uv*1.7;"
+    + "float a1=fbm(q+vec2(t,-t*.7));float b1=fbm(q*1.7+vec2(-t*.5,t*.4)+a1);float v=smoothstep(.12,.95,a1*.72+b1*.5);"
+    + "vec3 col=mix(vec3(.02,.024,.038),u_a,v);col=mix(col,u_b,pow(v,2.4)*.55);"
+    + "col*=smoothstep(1.3,.2,length(uv));o=vec4(col,1.);}";
+  function hexVec(hex) {
+    var c = String(hex || "#FF7A45").replace("#", "");
+    if (c.length === 3) c = c.split("").map(function (x) { return x + x; }).join("");
+    return [Math.pow(parseInt(c.slice(0, 2), 16) / 255, 2.2), Math.pow(parseInt(c.slice(2, 4), 16) / 255, 2.2), Math.pow(parseInt(c.slice(4, 6), 16) / 255, 2.2)];
+  }
+  function initFX() {
+    var c = $("#fx"); if (!c) return;
+    var gl = null;
+    try { gl = c.getContext("webgl2", { alpha: false, antialias: false, depth: false, powerPreference: "low-power" }); } catch (e) { gl = null; }
+    if (!gl) { fx.ok = false; return; }
+    function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { return null; } return s; }
+    var vs = sh(gl.VERTEX_SHADER, FX_VS), fs = sh(gl.FRAGMENT_SHADER, FX_FS);
+    if (!vs || !fs) { fx.ok = false; return; }
+    var prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { fx.ok = false; return; }
+    gl.useProgram(prog);
+    var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    fx.gl = gl; fx.prog = prog;
+    fx.uRes = gl.getUniformLocation(prog, "u_res");
+    fx.uT = gl.getUniformLocation(prog, "u_t");
+    fx.uA = gl.getUniformLocation(prog, "u_a");
+    fx.uB = gl.getUniformLocation(prog, "u_b");
+    fx.ok = true;
+    resizeFX(); renderFX();
+  }
+  function resizeFX() {
+    if (!fx.ok) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    var w = Math.floor(window.innerWidth * dpr), h = Math.floor(window.innerHeight * dpr);
+    if (fx.canvasW === w && fx.canvasH === h) return;
+    fx.canvasW = w; fx.canvasH = h;
+    $("#fx").width = w; $("#fx").height = h;
+    fx.gl.viewport(0, 0, w, h);
+  }
+  function setFXAccent(hex) {
+    fx.accent = hexVec(hex);
+    var a = fx.accent; fx.tint = [a[2] * 1.2, a[0] * 1.1, a[1] * 1.3];
+    renderFX();
+  }
+  function renderFX() {
+    if (!fx.ok) return;
+    resizeFX();
+    var gl = fx.gl;
+    gl.uniform2f(fx.uRes, fx.canvasW, fx.canvasH);
+    gl.uniform1f(fx.uT, reduceMotion ? 12 : (performance.now() - fx.t0) / 1000);
+    gl.uniform3fv(fx.uA, fx.accent);
+    gl.uniform3fv(fx.uB, fx.tint);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function fxLoop() {
+    if (!fx.ok) return;
+    if (!fx.paused && !reduceMotion) renderFX();
+    fx.raf = requestAnimationFrame(fxLoop);
+  }
+  document.addEventListener("visibilitychange", function () { fx.paused = document.hidden; });
+
+  /* ============================================================
+     v2 — astronomical sun times (NOAA approximation)
+     ============================================================ */
+  var CITIES = [
+    ["Delhi", "Asia/Kolkata", 28.61, 77.21], ["Mumbai", "Asia/Kolkata", 19.08, 72.88], ["Bengaluru", "Asia/Kolkata", 12.97, 77.59],
+    ["Dubai", "Asia/Dubai", 25.20, 55.27], ["Karachi", "Asia/Karachi", 24.86, 67.01], ["Dhaka", "Asia/Dhaka", 23.81, 90.41],
+    ["Kathmandu", "Asia/Kathmandu", 27.72, 85.32], ["Colombo", "Asia/Colombo", 6.93, 79.86], ["Singapore", "Asia/Singapore", 1.35, 103.82],
+    ["Shanghai", "Asia/Shanghai", 31.23, 121.47], ["Tokyo", "Asia/Tokyo", 35.68, 139.69], ["Jakarta", "Asia/Jakarta", -6.21, 106.85],
+    ["Riyadh", "Asia/Riyadh", 24.71, 46.68], ["London", "Europe/London", 51.51, -0.13], ["Paris", "Europe/Paris", 48.86, 2.35],
+    ["Berlin", "Europe/Berlin", 52.52, 13.40], ["Madrid", "Europe/Madrid", 40.42, -3.70], ["Moscow", "Europe/Moscow", 55.76, 37.62],
+    ["Cairo", "Africa/Cairo", 30.04, 31.24], ["Lagos", "Africa/Lagos", 6.52, 3.38], ["Johannesburg", "Africa/Johannesburg", -26.20, 28.05],
+    ["New York", "America/New_York", 40.71, -74.01], ["Chicago", "America/Chicago", 41.88, -87.63], ["Denver", "America/Denver", 39.74, -104.99],
+    ["Los Angeles", "America/Los_Angeles", 34.05, -118.24], ["Sao Paulo", "America/Sao_Paulo", -23.55, -46.63], ["Mexico City", "America/Mexico_City", 19.43, -99.13],
+    ["Sydney", "Australia/Sydney", -33.87, 151.21], ["Perth", "Australia/Perth", -31.95, 115.86], ["Auckland", "Pacific/Auckland", -36.85, 174.76]
+  ];
+  function cityForZone(tz) { for (var i = 0; i < CITIES.length; i++) if (CITIES[i][1] === tz) return CITIES[i]; return CITIES[0]; }
+  function sunTimes(y, mo, day, lat, lon) {
+    var rad = function (x) { return x * Math.PI / 180; }, deg = function (x) { return x * 180 / Math.PI; };
+    var N = Math.floor((Date.UTC(y, mo - 1, day) - Date.UTC(y, 0, 1)) / 86400000) + 1, lngHour = lon / 15;
+    function calc(rise) {
+      var t = N + ((rise ? 6 : 18) - lngHour) / 24;
+      var M = 0.9856 * t - 3.289;
+      var L = M + 1.916 * Math.sin(rad(M)) + 0.020 * Math.sin(rad(2 * M)) + 282.634;
+      L = (L + 360) % 360;
+      var RA = deg(Math.atan(0.91764 * Math.tan(rad(L))));
+      RA = (RA + 360) % 360;
+      RA = (RA + (Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90)) / 15;
+      var sinDec = 0.39782 * Math.sin(rad(L)), cosDec = Math.cos(Math.asin(sinDec));
+      var cosH = (Math.cos(rad(90.833)) - sinDec * Math.sin(rad(lat))) / (cosDec * Math.cos(rad(lat)));
+      if (cosH > 1 || cosH < -1) return null;
+      var H = (rise ? 360 - deg(Math.acos(cosH)) : deg(Math.acos(cosH))) / 15;
+      var T = H + RA - 0.06571 * t - 6.622;
+      return ((T - lngHour) % 24 + 24) % 24;
+    }
+    var r = calc(true), s = calc(false);
+    function toTs(h) { if (h == null) return null; return Date.UTC(y, mo - 1, day) + Math.round(h * 3600000); }
+    return { sunrise: toTs(r), sunset: toTs(s) };
+  }
+  function skyPhase(ts, tz) {
+    var city = cityForZone(tz);
+    var p = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date(ts));
+    var o = {}; p.forEach(function (x) { o[x.type] = x.value; });
+    var st = sunTimes(+o.year, +o.month, +o.day, city[2], city[3]);
+    if (!st.sunrise || !st.sunset) return { phase: "—", city: city[0], sunrise: null, sunset: null };
+    var h = ts - (Date.UTC(+o.year, +o.month - 1, +o.day) + ((+o.hour) % 24) * 3600000);
+    var phase = "day";
+    if (ts < st.sunrise - 3600000 || ts > st.sunset + 3600000) phase = "night";
+    else if (ts < st.sunrise + 3600000) phase = "dawn";
+    else if (ts > st.sunset - 3600000) phase = "dusk";
+    return { phase: phase, city: city[0], sunrise: st.sunrise, sunset: st.sunset };
+  }
+
+  /* ============================================================
+     v2 — Web Audio sonification, speech, haptics
+     ============================================================ */
+  var audio = { ctx: null, on: false, master: null };
+  function audioToggle(on) {
+    if (on) {
+      try {
+        if (!audio.ctx) { audio.ctx = new (window.AudioContext || window.webkitAudioContext)(); audio.master = audio.ctx.createGain(); audio.master.gain.value = 0.5; audio.master.connect(audio.ctx.destination); }
+        if (audio.ctx.state === "suspended") audio.ctx.resume();
+        audio.on = true;
+      } catch (e) { audio.on = false; }
+    } else { audio.on = false; if (audio.ctx && audio.ctx.state === "running") audio.ctx.suspend(); }
+  }
+  function blip(freq, dur, vol, type) {
+    if (!audio.ctx || !audio.master) return;
+    var t = audio.ctx.currentTime, o = audio.ctx.createOscillator(), g = audio.ctx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function sonifyTick(p) { if (audio.on) blip(196 + 784 * Math.max(0, Math.min(1, p)), 0.05, 0.035, "sine"); }
+  function chime() { if (!audio.on) return; [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) { setTimeout(function () { blip(f, 1.1, 0.08, "triangle"); }, i * 130); }); }
+  function speak(text) { try { if ("speechSynthesis" in window) { var u = new SpeechSynthesisUtterance(text); u.rate = 0.95; u.pitch = 1; speechSynthesis.speak(u); } } catch (e) {} }
+  function haptic(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} }
+
+  /* ============================================================
+     v2 — animated favicon + live document title
+     ============================================================ */
+  var favCanvas = document.createElement("canvas"); favCanvas.width = favCanvas.height = 64;
+  var favLink = document.querySelector('link[rel="icon"]'), lastFav = "";
+  function roundRect(x, r, w, h, rad) { x.beginPath(); if (x.roundRect) { x.roundRect(r, r, w, h, rad); return; } x.moveTo(r + rad, r); x.arcTo(r + w, r, r + w, r + h, rad); x.arcTo(r + w, r + h, r, r + h, rad); x.arcTo(r, r + h, r, r, rad); x.arcTo(r, r, r + w, r, rad); x.closePath(); }
+  function updateFavicon(label, pct, accent) {
+    var x = favCanvas.getContext("2d");
+    x.clearRect(0, 0, 64, 64);
+    x.fillStyle = "#0E0F13"; roundRect(x, 2, 2, 60, 60, 14); x.fill();
+    x.lineWidth = 5; x.lineCap = "round";
+    x.strokeStyle = "rgba(255,255,255,.10)"; x.beginPath(); x.arc(32, 32, 21, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = accent || "#FF7A45"; x.beginPath(); x.arc(32, 32, 21, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, pct))); x.stroke();
+    x.fillStyle = "#ECEDF2"; x.font = "600 " + (label.length > 2 ? 20 : 25) + "px ui-monospace, monospace"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(label, 32, 34);
+    var url = favCanvas.toDataURL("image/png");
+    if (url !== lastFav && favLink) { favLink.href = url; lastFav = url; }
+  }
+
+  /* ============================================================
+     v2 — cross-tab sync (BroadcastChannel) + leader election
+     ============================================================ */
+  var TAB_ID = Math.random().toString(36).slice(2, 9), tabs = {}, bc = null;
+  function initSync() {
+    if (typeof BroadcastChannel === "undefined") return;
+    try {
+      bc = new BroadcastChannel("chronos");
+      bc.onmessage = function (e) {
+        var d = e.data || {};
+        if (d.type === "library") renderLib();
+        else if (d.type === "ping") { bc.postMessage({ type: "here", id: TAB_ID }); }
+        else if (d.type === "here") { tabs[d.id] = Date.now(); updateRuntime(); }
+        else if (d.type === "bye") { delete tabs[d.id]; updateRuntime(); }
+      };
+      bc.postMessage({ type: "ping" });
+      bc.postMessage({ type: "here", id: TAB_ID });
+      setInterval(function () { tabs[TAB_ID] = Date.now(); bc.postMessage({ type: "here", id: TAB_ID }); updateRuntime(); }, 5000);
+      window.addEventListener("pagehide", function () { try { bc.postMessage({ type: "bye", id: TAB_ID }); } catch (e) {} });
+    } catch (e) { bc = null; }
+  }
+  function broadcastLib() { if (bc) { try { bc.postMessage({ type: "library" }); } catch (e) {} } }
+  function tabCount() { var n = 0, now = Date.now(); for (var k in tabs) if (now - tabs[k] < 12000) n++; return Math.max(1, n); }
+
+  /* ============================================================
+     v2 — notifications
+     ============================================================ */
+  function askNotify() { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} }
+  function fireNotify(title, body) {
+    try { if ("Notification" in window && Notification.permission === "granted") new Notification(title, { body: body, icon: favCanvas.toDataURL("image/png") }); } catch (e) {}
+  }
+
+  /* ============================================================
+     v2 — wake lock, native share, file access
+     ============================================================ */
+  var wakeLock = null;
+  async function requestWake() { try { if ("wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); } } catch (e) {} }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible" && document.body.classList.contains("immersive")) requestWake(); });
+  async function nativeShare(url, title) {
+    if (navigator.share) { try { await navigator.share({ title: title || "Countdown", text: "A countdown for you", url: url }); return true; } catch (e) { return false; } }
+    return false;
+  }
+  function downloadBlob(blob, name) { var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500); }
+  async function exportLibrary() {
+    var data = JSON.stringify(getLib(), null, 2);
+    if (window.showSaveFilePicker) {
+      try {
+        var h = await window.showSaveFilePicker({ suggestedName: "chronos-library.json", types: [{ description: "JSON", accept: { "application/json": [".json"] } }] });
+        var w = await h.createWritable(); await w.write(data); await w.close();
+        showToast("Library exported"); return;
+      } catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    downloadBlob(new Blob([data], { type: "application/json" }), "chronos-library.json");
+    showToast("Library exported");
+  }
+
+  /* ============================================================
+     v2 — capability probe + machinery panel
+     ============================================================ */
+  function safeTest(fn) { try { return !!fn(); } catch (e) { return false; } }
+  var CAPS = [
+    ["WebGL 2", "GPU fragment-shader background", function () { return !!document.createElement("canvas").getContext("webgl2"); }, function () { return fx.ok; }],
+    ["Web Worker", "confetti physics off the main thread", function () { return typeof Worker !== "undefined"; }, function () { return workerReady; }],
+    ["OffscreenCanvas", "the worker paints the canvas directly", function () { return typeof OffscreenCanvas !== "undefined"; }, function () { return workerOffscreen && workerReady; }],
+    ["CompressionStream", "deflate-raw shrinks every share link", function () { return typeof CompressionStream !== "undefined"; }, function () { return typeof CompressionStream !== "undefined"; }],
+    ["DecompressionStream", "links unpack without a server", function () { return typeof DecompressionStream !== "undefined"; }, function () { return typeof DecompressionStream !== "undefined"; }],
+    ["BroadcastChannel", "live sync across open tabs", function () { return typeof BroadcastChannel !== "undefined"; }, function () { return !!bc; }],
+    ["Web Audio API", "the wait, sonified", function () { return !!(window.AudioContext || window.webkitAudioContext); }, function () { return audio.on; }],
+    ["SpeechSynthesis", "spoken announcement at zero", function () { return "speechSynthesis" in window; }, function () { return "speechSynthesis" in window; }],
+    ["Notification", "desktop alert when it lands", function () { return "Notification" in window; }, function () { return "Notification" in window && Notification.permission === "granted"; }],
+    ["Wake Lock", "screen stays on in full screen", function () { return "wakeLock" in navigator; }, function () { return !!wakeLock; }],
+    ["Vibration", "a haptic pulse at milestones", function () { return "vibrate" in navigator; }, function () { return "vibrate" in navigator; }],
+    ["Web Share", "the native share sheet", function () { return !!navigator.share; }, function () { return !!navigator.share; }],
+    ["File System Access", "save the library as a real file", function () { return !!window.showSaveFilePicker; }, function () { return !!window.showSaveFilePicker; }],
+    ["Service Worker", "offline shell, installable app", function () { return "serviceWorker" in navigator; }, function () { return swReady; }],
+    ["Cache Storage", "assets cached for offline", function () { return typeof caches !== "undefined"; }, function () { return swReady; }],
+    ["View Transitions", "native page-to-page animation", function () { return "startViewTransition" in document; }, function () { return "startViewTransition" in document; }],
+    ["CSS @property", "animatable conic progress ring", function () { return !!(window.CSS && CSS.supports && CSS.supports("--x", "0deg")); }, function () { return true; }],
+    ["Container Queries", "the countdown measures itself", function () { return !!(window.CSS && CSS.supports && CSS.supports("container-type", "inline-size")); }, function () { return true; }],
+    ["Scroll-driven CSS", "progress bar without JavaScript", function () { return !!(window.CSS && CSS.supports && CSS.supports("animation-timeline", "scroll()")); }, function () { return true; }],
+    ["Intl.DurationFormat", "human phrasing of the wait", function () { return typeof Intl.DurationFormat !== "undefined"; }, function () { return typeof Intl.DurationFormat !== "undefined"; }],
+    ["Intl.RelativeTimeFormat", "\u201Cin 3 days\u201D, localised", function () { return typeof Intl.RelativeTimeFormat !== "undefined"; }, function () { return true; }],
+    ["IANA timezones", "true timezone maths", function () { return safeTest(function () { return new Intl.DateTimeFormat("en", { timeZone: "Asia/Kolkata" }); }); }, function () { return true; }],
+    ["Canvas 2D", "poster export and favicon", function () { return !!document.createElement("canvas").getContext("2d"); }, function () { return true; }],
+    ["Custom Elements", "registers a chronos-countdown tag", function () { return !!window.customElements; }, function () { return !!(window.customElements && customElements.get("chronos-countdown")); }],
+    ["Shadow DOM", "encapsulated component styles", function () { return !!document.createElement("div").attachShadow; }, function () { return !!(window.customElements && customElements.get("chronos-countdown")); }],
+    ["dialog element", "native modal QR sheet", function () { return typeof document.createElement("dialog").showModal === "function"; }, function () { return true; }],
+    ["Speculation Rules", "prerender on hover", function () { return !!document.querySelector('script[type="speculationrules"]'); }, function () { return true; }],
+    ["crypto.subtle", "SHA-256 digests", function () { return !!(window.crypto && crypto.subtle); }, function () { return !!(window.crypto && crypto.subtle); }],
+    ["structuredClone", "deep-copy configs safely", function () { return typeof structuredClone === "function"; }, function () { return typeof structuredClone === "function"; }],
+    ["ResizeObserver", "shader resizes to the viewport", function () { return typeof ResizeObserver !== "undefined"; }, function () { return fx.ok; }],
+    ["IntersectionObserver", "scroll reveals", function () { return typeof IntersectionObserver !== "undefined"; }, function () { return true; }],
+    ["Page Visibility", "pauses work in hidden tabs", function () { return typeof document.hidden === "boolean"; }, function () { return true; }],
+    ["Fullscreen API", "the immersive stage", function () { return !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen); }, function () { return true; }],
+    ["Clipboard API", "one-tap copy", function () { return !!(navigator.clipboard && navigator.clipboard.writeText); }, function () { return !!(navigator.clipboard && navigator.clipboard.writeText); }],
+    ["Web Storage", "your library, on this device", function () { return safeTest(function () { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); return true; }); }, function () { return true; }],
+    ["Performance API", "a drift-free monotonic clock", function () { return typeof performance !== "undefined" && typeof performance.now === "function"; }, function () { return true; }],
+    ["matchMedia", "respects reduced-motion", function () { return typeof window.matchMedia === "function"; }, function () { return true; }],
+    ["Blob URLs", "worker and files from strings", function () { return typeof URL.createObjectURL === "function"; }, function () { return workerReady; }],
+    ["Pointer Events", "works with mouse, pen, touch", function () { return typeof PointerEvent !== "undefined"; }, function () { return true; }],
+    ["beforeinstallprompt", "add to home screen", function () { return "onbeforeinstallprompt" in window; }, function () { return false; }],
+    ["Font Loading API", "waits for fonts before drawing the poster", function () { return !!(document.fonts && document.fonts.ready); }, function () { return !!(document.fonts && document.fonts.ready); }],
+    ["CSS color-mix()", "tints every surface from one accent", function () { return !!(window.CSS && CSS.supports && CSS.supports("color", "color-mix(in srgb, red, blue)")); }, function () { return true; }]
+  ];
+  function renderLab() {
+    var grid = $("#capGrid"), meter = $("#labMeter");
+    if (grid) {
+      grid.innerHTML = CAPS.map(function (c) {
+        var avail = safeTest(c[2]), used = safeTest(c[3]);
+        return '<div class="cap' + (used ? " used" : (avail ? " on" : "")) + '"><span class="dotmark"></span><div class="cap-body">' +
+          '<div class="cap-name">' + esc(c[0]) + (used ? '<span class="tag">active</span>' : (avail ? "" : '<span class="tag">n/a</span>')) + "</div>" +
+          '<div class="cap-desc">' + esc(c[1]) + "</div></div></div>";
+      }).join("");
+    }
+    if (meter) updateRuntime();
+  }
+  function updateRuntime() {
+    var meter = $("#labMeter"); if (!meter) return;
+    var liveCount = CAPS.filter(function (c) { return safeTest(c[3]); }).length;
+    var items = [
+      [tabCount(), "tabs connected"],
+      [workerReady ? "on" : "off", "worker thread"],
+      [fx.ok ? "GL2" : "off", "shader backend"],
+      [swReady ? "cached" : "\u2014", "offline shell"],
+      [liveCount + "/" + CAPS.length, "APIs in use"]
+    ];
+    meter.innerHTML = items.map(function (it) {
+      return '<div class="m"><div class="mv">' + esc(String(it[0])) + '</div><div class="ml">' + esc(it[1]) + "</div></div>";
+    }).join("");
+  }
+
+  /* ============================================================
+     v2 — chronos-countdown web component
+     ============================================================ */
+  if (window.customElements && !customElements.get("chronos-countdown")) {
+    var ChronosCountdown = class extends HTMLElement {
+      static get observedAttributes() { return ["title", "date", "time", "tz", "accent"]; }
+      connectedCallback() { if (!this._r) this._r = this.attachShadow({ mode: "open" }); this.render(); this._t = setInterval(this.render.bind(this), 1000); }
+      disconnectedCallback() { clearInterval(this._t); }
+      attributeChangedCallback() { if (this._r) this.render(); }
+      render() {
+        var g = function (n, d) { return this.getAttribute(n) || d; }.bind(this);
+        var c = { title: g("title", "Countdown"), date: g("date", ""), time: g("time", "00:00"), tz: g("tz", localZone()), accent: g("accent", "#FF7A45"), dir: "down", units: { days: true, hours: true, minutes: true, seconds: true }, progress: false, celebrate: false, keep: true, ref: Date.now() };
+        var target = computeTarget(c), now = Date.now(), past = target ? now >= target : false;
+        var s = target ? Math.floor(Math.abs(target - now) / 1000) : 0;
+        var p2 = function (n) { return String(n).padStart(2, "0"); };
+        this._r.innerHTML =
+          "<style>:host{display:block;font-family:'Space Grotesk',system-ui,sans-serif;background:#16181E;color:#ECEDF2;border:1px solid #292D38;border-radius:16px;padding:22px;max-width:540px}" +
+          "h4{margin:0;font-size:17px;font-weight:600}.sub{color:#99A0B0;font-size:12px;margin:3px 0 14px}" +
+          ".row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}" +
+          ".n{font-variant-numeric:tabular-nums;font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1}" +
+          ".l{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#99A0B0;margin-top:5px}" +
+          ".tag{display:inline-block;margin-top:14px;font-size:11px;color:" + c.accent + ";border:1px solid " + c.accent + ";border-radius:99px;padding:2px 9px}</style>" +
+          "<h4>" + esc(c.title) + "</h4><div class='sub'>" + (target ? esc(fmtInZone(target, c.tz)) : "no date set") + "</div>" +
+          "<div class='row'><div><div class='n'>" + Math.floor(s / 86400) + "</div><div class='l'>Days</div></div>" +
+          "<div><div class='n'>" + p2(Math.floor(s % 86400 / 3600)) + "</div><div class='l'>Hours</div></div>" +
+          "<div><div class='n'>" + p2(Math.floor(s % 3600 / 60)) + "</div><div class='l'>Minutes</div></div>" +
+          "<div><div class='n'>" + p2(s % 60) + "</div><div class='l'>Seconds</div></div></div>" +
+          "<span class='tag'>" + (past ? "since" : "to go") + "</span>";
+      }
+    };
+    customElements.define("chronos-countdown", ChronosCountdown);
+  }
+
+  /* ============================================================
+     v2 — poster export (PNG)
+     ============================================================ */
+  function wrapText(x, text, cx, y, maxW, lh) {
+    var words = String(text).split(/\s+/), line = "", lines = [];
+    for (var i = 0; i < words.length; i++) {
+      var t = line ? line + " " + words[i] : words[i];
+      if (x.measureText(t).width > maxW && line) { lines.push(line); line = words[i]; } else line = t;
+    }
+    if (line) lines.push(line);
+    for (var j = 0; j < lines.length; j++) x.fillText(lines[j], cx, y + j * lh);
+  }
+  async function exportPoster(c) {
+    var target = computeTarget(c);
+    if (target == null) { showToast("Set a date first"); return; }
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+    var W = 1080, H = 1350, cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    var x = cv.getContext("2d");
+    x.fillStyle = "#0E0F13"; x.fillRect(0, 0, W, H);
+    var g = x.createRadialGradient(W / 2, 250, 0, W / 2, 250, 1000);
+    g.addColorStop(0, hexSoft(c.accent, 0.55)); g.addColorStop(1, "rgba(14,15,19,0)");
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.textAlign = "center"; x.fillStyle = "#ECEDF2";
+    x.font = "600 74px Fraunces, Georgia, serif";
+    wrapText(x, c.title || "Countdown", W / 2, 430, 880, 84);
+    if (c.sub) { x.font = "400 32px 'Space Grotesk', sans-serif"; x.fillStyle = "#99A0B0"; wrapText(x, c.sub, W / 2, 580, 820, 42); }
+    var s = Math.floor(Math.abs(target - Date.now()) / 1000);
+    var vals = [["Days", Math.floor(s / 86400)], ["Hours", Math.floor(s % 86400 / 3600)], ["Minutes", Math.floor(s % 3600 / 60)], ["Seconds", s % 60]];
+    var colW = W / 4;
+    vals.forEach(function (v, i) {
+      var cx = colW * i + colW / 2;
+      x.fillStyle = "#ECEDF2"; x.font = "600 100px Fraunces, Georgia, serif";
+      x.fillText(i === 0 ? String(v[1]) : String(v[1]).padStart(2, "0"), cx, 900);
+      x.fillStyle = c.accent; x.font = "500 22px 'Space Grotesk', sans-serif";
+      x.fillText(v[0].toUpperCase(), cx, 942);
+    });
+    x.fillStyle = "#99A0B0"; x.font = "400 26px 'Space Grotesk', sans-serif";
+    x.fillText(fmtInZone(target, c.tz) + "  \u00b7  " + c.tz, W / 2, 1090);
+    x.fillStyle = "#ECEDF2"; x.font = "600 32px Fraunces, Georgia, serif";
+    x.fillText("Chronos", W / 2, H - 90);
+    cv.toBlob(function (blob) { downloadBlob(blob, slug(c.title || "countdown") + "-poster.png"); showToast("Poster downloaded"); }, "image/png");
+  }
+
+  /* ============================================================
+     v2 — natural-language date parsing
+     ============================================================ */
+  function parseWhen(str) {
+    if (!str) return null;
+    var s = String(str).toLowerCase().trim(), now = new Date(), d = null, t = null;
+    var tm = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+    if (tm) { var h = (+tm[1] % 12); if (tm[3] === "pm") h += 12; t = pad(h) + ":" + pad(tm[2] || 0); }
+    else { var t2 = s.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/); if (t2) t = pad(+t2[1]) + ":" + t2[2]; }
+    var inM = s.match(/\bin\s+(\d+)\s*(day|days|week|weeks|hour|hours|month|months)\b/);
+    if (inM) {
+      var n = +inM[1], u = inM[2]; d = new Date(now.getTime());
+      if (u[0] === "d") d.setDate(d.getDate() + n); else if (u[0] === "w") d.setDate(d.getDate() + n * 7); else if (u[0] === "h") d.setHours(d.getHours() + n); else d.setMonth(d.getMonth() + n);
+      return { date: isoLocal(d), time: t || pad(now.getHours()) + ":" + pad(now.getMinutes()) };
+    }
+    if (/\btomorrow\b/.test(s)) d = new Date(now.getTime() + 86400000);
+    else if (/\btonight\b/.test(s)) { d = new Date(now.getTime()); if (!t) t = "21:00"; }
+    else if (/\btoday\b/.test(s)) d = new Date(now.getTime());
+    var days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    var wm = s.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+    if (!d && wm) {
+      var idx = days.indexOf(wm[2]); d = new Date(now.getTime());
+      var delta = (idx - d.getDay() + 7) % 7; if (delta === 0) delta = 7; if (wm[1] && delta < 7) delta += 7;
+      d.setDate(d.getDate() + delta);
+    }
+    var mm = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    var dm = s.match(/\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/) || s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b/);
+    if (dm) {
+      var dayNum, monStr;
+      if (/^\d/.test(dm[1])) { dayNum = +dm[1]; monStr = dm[2]; } else { dayNum = +dm[2]; monStr = dm[1]; }
+      var mi = -1; for (var q = 0; q < mm.length; q++) if (mm[q].indexOf(monStr) === 0) { mi = q; break; }
+      if (mi >= 0) { var yr = now.getFullYear(), cand = new Date(yr, mi, dayNum); if (cand.getTime() < now.getTime() - 86400000) cand = new Date(yr + 1, mi, dayNum); d = cand; }
+    }
+    var iso = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+    if (iso) d = new Date(+iso[1], +iso[2] - 1, +iso[3]);
+    var dmy = s.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\b/);
+    if (dmy) d = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+    if (!d || isNaN(d.getTime())) return null;
+    return { date: isoLocal(d), time: t || "09:00" };
+  }
+
+  /* ============================================================
+     v2 — QR sheet
+     ============================================================ */
+  var qrCurrentUrl = "";
+  async function showQR(c) {
+    var url = await makeLink(c), dlg = $("#qrDlg");
+    qrCurrentUrl = url;
+    var qr = qrGenerate(url, "M");
+    if (qr) qrDraw($("#qrCanvas"), qr, { px: 300 });
+    else { $("#qrCanvas").width = 0; $("#qrCanvas").height = 0; showToast("That link is too long for a QR code"); }
+    $("#qrLink").textContent = url;
+    if (dlg && dlg.showModal) { try { dlg.showModal(); } catch (e) { copy(url, "Link copied"); } } else copy(url, "Link copied");
+  }
+
+  /* ============================================================
+     v2 — time warp
+     ============================================================ */
+  var warpPct = 0;
+  function warpTime(c, now) {
+    if (!warpPct) return now;
+    var target = computeTarget(c); if (target == null) return now;
+    var ref = c.ref || (target - 86400000), total = target - ref;
+    return ref + (warpPct / 50) * total;
+  }
+  function warpLabel(c, now) {
+    if (!warpPct) return "live";
+    var t = warpTime(c, now), diff = t - now, past = diff < 0, s = Math.floor(Math.abs(diff) / 1000);
+    var dd = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600);
+    var mag = dd > 0 ? dd + "d " + pad(hh) + "h" : (hh > 0 ? hh + "h " + pad(Math.floor(s % 3600 / 60)) + "m" : Math.floor(s / 60) + "m");
+    return (past ? "T+" : "T\u2212") + mag;
+  }
+
+  /* ============================================================
+     v2 — tick loop, favicon, title, sonify
+     ============================================================ */
+  var mainTick = null, heroFeatured = null;
+  function tickAll(now) {
+    live.forEach(function (e) {
+      if (document.body.contains(e.el)) updateCd(e.el, e.el._warped ? warpTime(e.cfg, now) : now);
+    });
+    var v = $(".view.is-active"), vid = v ? v.id : "home";
+    var c = vid === "shared" ? sharedCfg : (vid === "create" ? cfg : heroFeatured);
+    if ((vid === "home" || vid === "create" || vid === "shared") && c) {
+      var target = computeTarget(c);
+      if (target != null) {
+        var diff = target - now, past = diff < 0, s = Math.floor(Math.abs(diff) / 1000);
+        var dd = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600);
+        var ref = c.ref || (target - 86400000), total = target - ref;
+        var pct = total > 0 ? Math.max(0, Math.min(1, (now - ref) / total)) : 0;
+        var label = dd > 0 ? (dd + "d " + pad(hh) + "h") : (hh > 0 ? (hh + "h " + pad(Math.floor(s % 3600 / 60)) + "m") : (Math.floor(s / 60) + "m " + pad(s % 60) + "s"));
+        updateFavicon(dd > 0 ? String(dd) : (hh > 0 ? String(hh) : String(Math.floor(s / 60))), pct, c.accent);
+        document.title = (past ? "+\u2009" : "") + label + " \u00b7 " + ((v && v.dataset.title) || "Chronos");
+        if (audio.on && cfg.sonify && (vid === "create" || vid === "shared")) sonifyTick(pct);
+      }
+    } else if (v && v.dataset.title && document.title !== v.dataset.title) {
+      document.title = v.dataset.title;
+    }
+  }
+
+  /* ============================================================
+     v2 — service worker + public API
+     ============================================================ */
+  function initSW() {
+    if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+    navigator.serviceWorker.register("sw.js").then(function () { swReady = true; updateRuntime(); }).catch(function () {});
+  }
+  window.Chronos = {
+    version: "2.0",
+    qr: qrGenerate, drawQR: qrDraw, makeLink: makeLink, unpack: unpackState,
+    parseWhen: parseWhen, sunTimes: sunTimes, skyPhase: skyPhase,
+    capabilities: function () { return CAPS.map(function (c) { return { name: c[0], available: safeTest(c[2]), active: safeTest(c[3]) }; }); }
+  };
+
   /* ---------- boot ---------- */
   buildTZ(); buildAccents(); bindForm(); bindActions();
-  renderPresets(); renderLib(); syncForm(); apply();
+  renderPresets(); renderLib(); syncForm();
+  document.documentElement.dataset.fx = fxMode;
+  initFX();
+  if (fx.ok) { setFXAccent(cfg.accent); fxLoop(); } else { document.documentElement.dataset.fx = "off"; }
+  initWorker(); initSync(); initSW(); renderLab();
+  heroFeatured = heroCfg();
+  mountCd($("#heroCd"), heroFeatured);
+  apply();
   initReveal();
-  mountCd($("#heroCd"), heroCfg());
+  var wc = $("#wcSnippet");
+  if (wc) wc.textContent = '<!-- the element is registered by this page -->\n<chronos-countdown\n  title="Product launch"\n  date="' + isoLocal(new Date(Date.now() + 90 * 86400000)) + '"\n  time="10:00"\n  tz="' + localZone() + '"\n  accent="#FF7A45"></chronos-countdown>';
+  var wcDemo = $("#wcDemo");
+  if (wcDemo) { wcDemo.setAttribute("date", isoLocal(new Date(Date.now() + 45 * 86400000))); wcDemo.setAttribute("tz", localZone()); }
   routeFromHash();
 })();
 </script>
